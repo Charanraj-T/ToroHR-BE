@@ -1,4 +1,4 @@
-import { validateLoginDto } from "../dtos/auth/login.dto.js";
+import { validateLoginDto } from "../dtos/login.dto.js";
 import User from "../models/user.model.js";
 import { generateToken } from "../utils/jwt.js";
 
@@ -19,8 +19,10 @@ export const login = async (loginData) => {
     throw error;
   }
 
-  const { email, password } = value;
-  const user = await User.findOne({ email: email.toLowerCase() }).select("+password");
+  const { identifier, password } = value;
+  const isEmail = identifier.includes("@");
+  const query = isEmail ? { email: identifier.toLowerCase() } : { phoneNumber: identifier };
+  const user = await User.findOne(query).select("+password");
 
   if (!user) {
     const error = new Error("Invalid email or password");

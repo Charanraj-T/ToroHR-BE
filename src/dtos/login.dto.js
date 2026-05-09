@@ -1,10 +1,9 @@
 import Joi from "joi";
 
 export const loginSchema = Joi.object({
-  email: Joi.string().email().required().messages({
-    "string.email": "Email must be valid",
-    "string.empty": "Email is required",
-    "any.required": "Email is required"
+  identifier: Joi.string().trim().required().messages({
+    "string.empty": "Email or phone number is required",
+    "any.required": "Email or phone number is required"
   }),
   password: Joi.string().required().messages({
     "string.empty": "Password is required",

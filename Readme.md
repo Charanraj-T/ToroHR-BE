@@ -51,3 +51,19 @@ Production:
 ```bash
 npm start
 ```
+
+## Create Admin
+
+Set these environment variables on the server:
+
+```env
+ADMIN_NAME=Admin User
+ADMIN_EMAIL=admin@torohr.com
+ADMIN_PASSWORD=change_this_password
+```
+
+Run:
+
+```bash
+npm run create-admin
+```

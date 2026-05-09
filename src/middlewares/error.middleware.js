@@ -5,10 +5,17 @@ export const notFound = (req, res, next) => {
 };
 
 export const errorHandler = (error, req, res, next) => {
-  const statusCode = error.statusCode || 500;
+  let statusCode = error.statusCode || 500;
+  let message = error.message || "Internal server error";
+
+  if (error.code === 11000) {
+    statusCode = 409;
+    const field = Object.keys(error.keyPattern || error.keyValue || {})[0] || "field";
+    message = `${field} already exists`;
+  }
 
   res.status(statusCode).json({
     success: false,
-    message: error.message || "Internal server error"
+    message
   });
 };
