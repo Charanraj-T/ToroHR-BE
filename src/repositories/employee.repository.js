@@ -87,3 +87,38 @@ export const listEmployees = async ({ query, page, limit }) => {
     data
   };
 };
+
+export const getStats = async () => {
+  const [stats] = await Employee.aggregate([
+    {
+      $group: {
+        _id: null,
+        total: { $sum: 1 },
+        active: {
+          $sum: {
+            $cond: [{ $eq: ["$status", "Active"] }, 1, 0]
+          }
+        },
+        inactive: {
+          $sum: {
+            $cond: [{ $eq: ["$status", "Inactive"] }, 1, 0]
+          }
+        }
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        total: 1,
+        active: 1,
+        inactive: 1
+      }
+    }
+  ]);
+
+  return stats || {
+    total: 0,
+    active: 0,
+    inactive: 0
+  };
+};

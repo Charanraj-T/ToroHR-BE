@@ -1,9 +1,11 @@
 import { validateLoginDto } from "../dtos/login.dto.js";
 import User from "../models/user.model.js";
+import * as employeeRepository from "../repositories/employee.repository.js";
 import { generateToken } from "../utils/jwt.js";
 
-const sanitizeUser = (user) => ({
+const sanitizeUser = (user, employee = null) => ({
   id: user._id,
+  employeeId: employee ? employee._id.toString() : null,
   name: user.name,
   email: user.email,
   role: user.role,
@@ -44,11 +46,12 @@ export const login = async (loginData) => {
     throw error;
   }
 
-  const token = generateToken(user);
+  const employee = await employeeRepository.findEmployeeByUserId(user._id);
+  const token = generateToken(user, employee ? employee._id.toString() : null);
 
   return {
     token,
-    user: sanitizeUser(user)
+    user: sanitizeUser(user, employee)
   };
 };
 
@@ -61,5 +64,7 @@ export const getCurrentUser = async (userId) => {
     throw error;
   }
 
-  return sanitizeUser(user);
+  const employee = await employeeRepository.findEmployeeByUserId(user._id);
+
+  return sanitizeUser(user, employee);
 };

@@ -5,12 +5,29 @@ import { authorizeRoles, verifyToken } from "../middlewares/auth.middleware.js";
 const router = express.Router();
 
 router.use(verifyToken);
-router.use(authorizeRoles("Admin", "Manager"));
 
-router.post("/", employeeController.createEmployee);
-router.get("/", employeeController.getEmployees);
-router.get("/:id", employeeController.getEmployeeById);
-router.put("/:id", employeeController.updateEmployee);
-router.delete("/:id", employeeController.deleteEmployee);
+const canViewProfile = (req, res, next) => {
+  const { role, employeeId } = req.user;
+  const targetId = req.params.id;
+
+  console.log('DEBUG Auth:', { role, userEmployeeId: employeeId, targetId });
+
+  if (role === "Admin" || role === "Manager" || (employeeId && employeeId === targetId)) {
+    return next();
+  }
+
+  const error = new Error("You do not have permission to access this resource");
+  error.statusCode = 403;
+  next(error);
+};
+
+const isAdminOrManager = authorizeRoles("Admin", "Manager");
+
+router.post("/", isAdminOrManager, employeeController.createEmployee);
+router.get("/stats", isAdminOrManager, employeeController.getEmployeeStats);
+router.get("/", isAdminOrManager, employeeController.getEmployees);
+router.get("/:id", canViewProfile, employeeController.getEmployeeById);
+router.put("/:id", isAdminOrManager, employeeController.updateEmployee);
+router.delete("/:id", isAdminOrManager, employeeController.deleteEmployee);
 
 export default router;

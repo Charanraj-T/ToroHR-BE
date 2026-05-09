@@ -75,3 +75,16 @@ export const deleteEmployee = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getEmployeeStats = async (req, res, next) => {
+  try {
+    const stats = await employeeService.getEmployeeStats();
+
+    res.status(200).json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    next(error);
+  }
+};

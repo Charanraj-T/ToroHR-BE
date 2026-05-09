@@ -318,3 +318,7 @@ export const deleteEmployee = async (id) => {
     session.endSession();
   }
 };
+
+export const getEmployeeStats = async () => {
+  return await employeeRepository.getStats();
+};

@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 
-export const generateToken = (user) => {
+export const generateToken = (user, employeeId = null) => {
   if (!process.env.JWT_SECRET) {
     throw new Error("JWT_SECRET is missing in environment variables");
   }
@@ -8,6 +8,7 @@ export const generateToken = (user) => {
   return jwt.sign(
     {
       userId: user._id,
+      employeeId,
       role: user.role,
       email: user.email
     },
