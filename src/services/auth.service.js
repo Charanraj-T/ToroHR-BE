@@ -1,0 +1,63 @@
+import { validateLoginDto } from "../dtos/auth/login.dto.js";
+import User from "../models/user.model.js";
+import { generateToken } from "../utils/jwt.js";
+
+const sanitizeUser = (user) => ({
+  id: user._id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  isActive: user.isActive
+});
+
+export const login = async (loginData) => {
+  const { isValid, value, errors } = validateLoginDto(loginData);
+
+  if (!isValid) {
+    const error = new Error(errors.join(", "));
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const { email, password } = value;
+  const user = await User.findOne({ email: email.toLowerCase() }).select("+password");
+
+  if (!user) {
+    const error = new Error("Invalid email or password");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  if (!user.isActive) {
+    const error = new Error("User account is inactive");
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const isPasswordValid = await user.comparePassword(password);
+
+  if (!isPasswordValid) {
+    const error = new Error("Invalid email or password");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const token = generateToken(user);
+
+  return {
+    token,
+    user: sanitizeUser(user)
+  };
+};
+
+export const getCurrentUser = async (userId) => {
+  const user = await User.findById(userId);
+
+  if (!user || !user.isActive) {
+    const error = new Error("User not found or inactive");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return sanitizeUser(user);
+};

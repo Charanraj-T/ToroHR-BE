@@ -1,0 +1,32 @@
+import dotenv from "dotenv";
+import cors from "cors";
+import express from "express";
+import connectDB from "./config/db.js";
+import { errorHandler, notFound } from "./middlewares/error.middleware.js";
+import authRoutes from "./routes/auth.routes.js";
+
+dotenv.config();
+
+const PORT = process.env.PORT || 5000;
+const app = express();
+
+app.use(cors());
+app.use(express.json());
+
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "ToroHR API is running"
+  });
+});
+
+app.use("/api/auth", authRoutes);
+
+app.use(notFound);
+app.use(errorHandler);
+
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`ToroHR server running on port ${PORT}`);
+  });
+});
