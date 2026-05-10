@@ -5,6 +5,7 @@ import connectDB from "./config/db.js";
 import { errorHandler, notFound } from "./middlewares/error.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
 import employeeRoutes from "./routes/employee.routes.js";
+import attendanceRoutes from "./routes/attendance.routes.js";
 
 dotenv.config();
 
@@ -17,12 +18,13 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.status(200).json({
     success: true,
-    message: "ToroHR API is running"
+    message: "ToroHR API is running",
   });
 });
 
 app.use("/api/auth", authRoutes);
 app.use("/api/employees", employeeRoutes);
+app.use("/api/attendance", attendanceRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

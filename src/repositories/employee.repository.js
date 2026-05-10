@@ -88,8 +88,13 @@ export const listEmployees = async ({ query, page, limit }) => {
   };
 };
 
-export const getStats = async () => {
+export const getStats = async (managerId = null) => {
+  const matchStage = managerId ? { reportingManagerId: new mongoose.Types.ObjectId(managerId) } : {};
+  
   const [stats] = await Employee.aggregate([
+    {
+      $match: matchStage
+    },
     {
       $group: {
         _id: null,

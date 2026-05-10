@@ -319,6 +319,6 @@ export const deleteEmployee = async (id) => {
   }
 };
 
-export const getEmployeeStats = async () => {
-  return await employeeRepository.getStats();
+export const getEmployeeStats = async (managerId = null) => {
+  return await employeeRepository.getStats(managerId);
 };

@@ -78,7 +78,8 @@ export const deleteEmployee = async (req, res, next) => {
 
 export const getEmployeeStats = async (req, res, next) => {
   try {
-    const stats = await employeeService.getEmployeeStats();
+    const { manager } = req.query;
+    const stats = await employeeService.getEmployeeStats(manager);
 
     res.status(200).json({
       success: true,
