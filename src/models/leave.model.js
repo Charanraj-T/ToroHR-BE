@@ -31,11 +31,6 @@ const leaveSchema = new mongoose.Schema(
       default: "Full-day",
       required: true
     },
-    halfDayPeriod: {
-      type: String,
-      enum: ["First-half", "Second-half", null],
-      default: null
-    },
     reason: {
       type: String,
       trim: true,
@@ -97,7 +92,7 @@ const leaveSchema = new mongoose.Schema(
   }
 );
 
-leaveSchema.index({ employeeId: 1, fromDate: 1, toDate: 1 });
+leaveSchema.index({ employeeId: 1, status: 1, fromDate: 1 });
 leaveSchema.index({ employeeId: 1, status: 1, createdAt: -1 });
 leaveSchema.index({ leaveType: 1, status: 1 });
 leaveSchema.index({ status: 1, createdAt: -1 });

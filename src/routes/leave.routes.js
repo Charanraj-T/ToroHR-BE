@@ -16,6 +16,7 @@ router.get("/me", authorizeRoles("Employee", "Manager", "Admin"), leaveControlle
 router.get("/balance/me", authorizeRoles("Employee", "Manager", "Admin"), leaveController.getMyLeaveBalance);
 
 router.get("/", authorizeRoles("Admin", "Manager"), leaveController.getLeaves);
+router.put("/:id", authorizeRoles("Employee", "Manager", "Admin"), leaveController.updateLeave);
 router.get("/:id", authorizeRoles("Employee", "Manager", "Admin"), leaveController.getLeaveById);
 
 router.put(

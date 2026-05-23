@@ -27,7 +27,6 @@ export const normalizeLeave = (leave) => {
     toDate: leave.toDate,
     leaveDays: leave.leaveDays,
     dayType: leave.dayType,
-    halfDayPeriod: leave.halfDayPeriod,
     reason: leave.reason,
     status: leave.status,
     appliedBy: leave.appliedBy,

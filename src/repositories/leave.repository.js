@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import Attendance from "../models/attendance.model.js";
 import Employee from "../models/employee.model.js";
 import Leave from "../models/leave.model.js";
@@ -57,7 +56,7 @@ export const updateLeaveById = (id, updateData, session = null) => {
   }).populate(leavePopulateOptions);
 };
 
-export const hasOverlappingLeave = async ({ employeeId, fromDate, toDate, halfDayPeriod, ignoredLeaveId = null, session = null }) => {
+export const hasOverlappingLeave = async ({ employeeId, fromDate, toDate, ignoredLeaveId = null, session = null }) => {
   const query = {
     employeeId,
     status: { $in: ACTIVE_LEAVE_STATUSES },
@@ -67,16 +66,6 @@ export const hasOverlappingLeave = async ({ employeeId, fromDate, toDate, halfDa
 
   if (ignoredLeaveId) {
     query._id = { $ne: ignoredLeaveId };
-  }
-
-  if (halfDayPeriod) {
-    const sameDate = getStartOfDay(fromDate).getTime() === getStartOfDay(toDate).getTime();
-    if (sameDate) {
-      query.$or = [
-        { dayType: "Full-day" },
-        { dayType: "Half-day", halfDayPeriod }
-      ];
-    }
   }
 
   return Leave.exists(query).session(session);
@@ -180,7 +169,7 @@ export const markAttendanceAsLeave = async ({ employeeId, dates, dayType, marked
   const operations = dates.map((date) => ({
     updateOne: {
       filter: {
-        employeeId: new mongoose.Types.ObjectId(employeeId),
+        employeeId,
         date: getStartOfDayIST(date)
       },
       update: {

@@ -1,5 +1,5 @@
 import Joi from "joi";
-import { HALF_DAY_PERIODS, LEAVE_DAY_TYPES, LEAVE_STATUSES, LEAVE_TYPES } from "../utils/leave.util.js";
+import { LEAVE_DAY_TYPES, LEAVE_STATUSES, LEAVE_TYPES } from "../utils/leave.util.js";
 
 const objectId = Joi.string().hex().length(24);
 const dateStringRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -13,11 +13,6 @@ export const createLeaveSchema = Joi.object({
     "string.pattern.base": "To date must be in YYYY-MM-DD format"
   }),
   dayType: Joi.string().valid(...LEAVE_DAY_TYPES).default("Full-day"),
-  halfDayPeriod: Joi.when("dayType", {
-    is: "Half-day",
-    then: Joi.string().valid(...HALF_DAY_PERIODS).required(),
-    otherwise: Joi.string().valid(...HALF_DAY_PERIODS).allow(null, "").optional()
-  }),
   reason: Joi.string().trim().max(500).allow("", null)
 });
 
@@ -36,6 +31,18 @@ export const listLeaveSchema = Joi.object({
 
 export const rejectLeaveSchema = Joi.object({
   rejectionReason: Joi.string().trim().max(500).allow("", null)
+});
+
+export const updateLeaveSchema = Joi.object({
+  leaveType: Joi.string().valid(...LEAVE_TYPES).required(),
+  fromDate: Joi.string().pattern(dateStringRegex).required().messages({
+    "string.pattern.base": "From date must be in YYYY-MM-DD format"
+  }),
+  toDate: Joi.string().pattern(dateStringRegex).required().messages({
+    "string.pattern.base": "To date must be in YYYY-MM-DD format"
+  }),
+  dayType: Joi.string().valid(...LEAVE_DAY_TYPES).default("Full-day"),
+  reason: Joi.string().trim().max(500).allow("", null)
 });
 
 export const cancelLeaveSchema = Joi.object({

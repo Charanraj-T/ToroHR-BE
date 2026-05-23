@@ -74,10 +74,13 @@ const nextSaturday = () => {
   return str;
 };
 
-const yesterday = () => {
-  const d = new Date();
+const yesterdayWeekday = () => {
+  let d = new Date();
   d.setUTCDate(d.getUTCDate() - 1);
   d.setUTCHours(0, 0, 0, 0);
+  while (d.getUTCDay() === 0 || d.getUTCDay() === 6) {
+    d.setUTCDate(d.getUTCDate() - 1);
+  }
   return d.toISOString().split("T")[0];
 };
 
@@ -178,7 +181,7 @@ const run = async () => {
   // =========================================================================
   console.log("=== 1. applyLeave ===");
 
-  const past = yesterday();
+  const past = yesterdayWeekday();
   const sat = nextSaturday();
 
   // 1.1  Apply CL full-day 1 working day
@@ -206,16 +209,16 @@ const run = async () => {
     assert(l.leaveType === "SL" && l.status === "Pending" && l.leaveDays > 1, "Emp1 applies SL multi-day");
   }
 
-  // 1.3  Apply PL half-day First-half
+  // 1.3  Apply PL half-day
   const d3 = date();
   let leave3;
   {
     const l = await leaveService.applyLeave(
-      { leaveType: "PL", fromDate: d3, toDate: d3, dayType: "Half-day", halfDayPeriod: "First-half", reason: "Personal errand" },
+      { leaveType: "PL", fromDate: d3, toDate: d3, dayType: "Half-day", reason: "Personal errand" },
       asEmp1
     );
     leave3 = l;
-    assert(l.leaveType === "PL" && l.dayType === "Half-day" && l.halfDayPeriod === "First-half" && l.leaveDays === 0.5, "Emp1 applies PL half-day first-half");
+    assert(l.leaveType === "PL" && l.dayType === "Half-day" && l.leaveDays === 0.5, "Emp1 applies PL half-day");
   }
 
   // 1.4  Apply LOP full-day
@@ -230,23 +233,18 @@ const run = async () => {
     assert(l.leaveType === "LOP" && l.leaveDays === 1, "Emp1 applies LOP 1 day");
   }
 
-  // 1.5  Same-date half-day Second-half on same day as 1.3 (different period => allowed)
-  let leave5;
-  {
-    const l = await leaveService.applyLeave(
-      { leaveType: "CL", fromDate: d3, toDate: d3, dayType: "Half-day", halfDayPeriod: "Second-half", reason: "Afternoon off" },
-      asEmp1
-    );
-    leave5 = l;
-    assert(l.leaveType === "CL" && l.halfDayPeriod === "Second-half" && l.leaveDays === 0.5, "Emp1 applies 2nd half on same day as 1st half \u2014 allowed");
-  }
-
-  // 1.6  Past date
+  // 1.5  Second half-day on same date as 1.3 => overlap (no period distinction)
   await assertThrows(
-    () => leaveService.applyLeave({ leaveType: "CL", fromDate: past, toDate: past, reason: "Oops" }, asEmp1),
-    "From date cannot be in the past",
-    "Past date \u2192 error"
+    () => leaveService.applyLeave({ leaveType: "CL", fromDate: d3, toDate: d3, dayType: "Half-day", reason: "Afternoon off" }, asEmp1),
+    "Leave request overlaps with an existing pending or approved leave",
+    "Second half-day on same date \u2192 overlap"
   );
+
+  // 1.6  Past date — now allowed
+  {
+    const l = await leaveService.applyLeave({ leaveType: "CL", fromDate: past, toDate: past, reason: "Oops" }, asEmp1);
+    assert(l.status === "Pending" && l.leaveDays >= 0.5, "Past date leave submitted successfully");
+  }
 
   // 1.7  fromDate > toDate
   const d5 = date();
@@ -271,19 +269,19 @@ const run = async () => {
     "Full-day overlap with existing \u2192 error"
   );
 
-  // 1.10  Half-day same period overlap
+  // 1.10  Half-day overlap with existing half-day
   const halfDup = date();
   await leaveService.applyLeave(
-    { leaveType: "SL", fromDate: halfDup, toDate: halfDup, dayType: "Half-day", halfDayPeriod: "First-half", reason: "First" },
+    { leaveType: "SL", fromDate: halfDup, toDate: halfDup, dayType: "Half-day", reason: "First" },
     asEmp1
   );
   await assertThrows(
     () => leaveService.applyLeave(
-      { leaveType: "CL", fromDate: halfDup, toDate: halfDup, dayType: "Half-day", halfDayPeriod: "First-half", reason: "Second" },
+      { leaveType: "CL", fromDate: halfDup, toDate: halfDup, dayType: "Half-day", reason: "Second" },
       asEmp1
     ),
     "Leave request overlaps with an existing pending or approved leave",
-    "Half-day same period \u2192 error"
+    "Half-day on date with existing half-day \u2192 error"
   );
 
   // 1.11  Half-day on full-day date
@@ -294,7 +292,7 @@ const run = async () => {
   );
   await assertThrows(
     () => leaveService.applyLeave(
-      { leaveType: "SL", fromDate: fullVsHalf, toDate: fullVsHalf, dayType: "Half-day", halfDayPeriod: "First-half", reason: "Half on full day" },
+      { leaveType: "SL", fromDate: fullVsHalf, toDate: fullVsHalf, dayType: "Half-day", reason: "Half on full day" },
       asEmp1
     ),
     "Leave request overlaps with an existing pending or approved leave",
@@ -306,7 +304,7 @@ const run = async () => {
   const d8 = date();
   await assertThrows(
     () => leaveService.applyLeave(
-      { leaveType: "CL", fromDate: d7, toDate: d8, dayType: "Half-day", halfDayPeriod: "First-half", reason: "Span" },
+      { leaveType: "CL", fromDate: d7, toDate: d8, dayType: "Half-day", reason: "Span" },
       asEmp1
     ),
     "Half-day leave must start and end on the same date",
@@ -671,6 +669,87 @@ const run = async () => {
     await leaveService.cancelLeave(hd2.id, { cancellationReason: "Revert" }, asEmp1);
     const after = await Attendance.countDocuments({ employeeId: emp1._id, status: "Leave" });
     assert(after < before, "Cancel approved leave removes Leave attendance record");
+  }
+
+  // =========================================================================
+  // SECTION 10  updateLeave
+  // =========================================================================
+  console.log("\n=== 10. updateLeave ===");
+
+  // 10.1  Update own pending leave
+  {
+    const dUpd = date();
+    const toUpdate = await leaveService.applyLeave(
+      { leaveType: "CL", fromDate: dUpd, toDate: dUpd, reason: "Original reason" },
+      asEmp1
+    );
+    const updated = await leaveService.updateLeave(toUpdate.id, {
+      leaveType: "SL", fromDate: dUpd, toDate: dUpd, reason: "Updated reason"
+    }, asEmp1);
+    assert(updated.leaveType === "SL" && updated.reason === "Updated reason" && updated.status === "Pending", "Employee updates own pending leave");
+  }
+
+  // 10.2  Update leave type + dates
+  {
+    const dUpd1 = date();
+    const dUpd2 = date();
+    const toUpdate = await leaveService.applyLeave(
+      { leaveType: "CL", fromDate: dUpd1, toDate: dUpd1, reason: "Change me" },
+      asEmp1
+    );
+    const updated = await leaveService.updateLeave(toUpdate.id, {
+      leaveType: "PL", fromDate: dUpd1, toDate: dUpd2, reason: "Changed"
+    }, asEmp1);
+    assert(updated.leaveType === "PL" && updated.leaveDays > 1, "Update leave type + multi-day");
+  }
+
+  // 10.3  Admin updates another's pending leave
+  {
+    const dUpd = date();
+    const toUpdate = await leaveService.applyLeave(
+      { leaveType: "CL", fromDate: dUpd, toDate: dUpd, reason: "Admin edit" },
+      asEmp1
+    );
+    const updated = await leaveService.updateLeave(toUpdate.id, {
+      leaveType: "LOP", fromDate: dUpd, toDate: dUpd, reason: "Admin changed"
+    }, asAdmin);
+    assert(updated.leaveType === "LOP", "Admin updates another's pending leave");
+  }
+
+  // 10.4  Cannot update non-pending leave
+  {
+    await assertThrows(
+      () => leaveService.updateLeave(leave1.id, { leaveType: "CL", fromDate: d1, toDate: d1, reason: "Nope" }, asEmp1),
+      "Only pending leave requests can be edited",
+      "Update approved leave → error"
+    );
+  }
+
+  // 10.5  Cannot update another employee's leave as employee
+  {
+    const dUpd = date();
+    const toUpdate = await leaveService.applyLeave(
+      { leaveType: "CL", fromDate: dUpd, toDate: dUpd, reason: "Other's leave" },
+      asEmp2
+    );
+    await assertThrows(
+      () => leaveService.updateLeave(toUpdate.id, { leaveType: "SL", fromDate: dUpd, toDate: dUpd, reason: "Hack" }, asEmp1),
+      "You do not have permission to edit this leave request",
+      "Emp1 cannot update Emp2's pending leave → 403"
+    );
+  }
+
+  // 10.6  Half-day edit
+  {
+    const dUpd = date();
+    const toUpdate = await leaveService.applyLeave(
+      { leaveType: "CL", fromDate: dUpd, toDate: dUpd, reason: "To half-day" },
+      asEmp1
+    );
+    const updated = await leaveService.updateLeave(toUpdate.id, {
+      leaveType: "PL", fromDate: dUpd, toDate: dUpd, dayType: "Half-day", reason: "Changed to half"
+    }, asEmp1);
+    assert(updated.dayType === "Half-day" && updated.leaveDays === 0.5, "Update full-day to half-day");
   }
 
   // =========================================================================

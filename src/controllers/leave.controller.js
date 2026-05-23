@@ -3,7 +3,8 @@ import {
   cancelLeaveSchema,
   createLeaveSchema,
   listLeaveSchema,
-  rejectLeaveSchema
+  rejectLeaveSchema,
+  updateLeaveSchema
 } from "../validators/leave.validator.js";
 
 const validate = (schema, payload, next) => {
@@ -35,6 +36,23 @@ export const createLeave = async (req, res, next) => {
       data: {
         leave
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateLeave = async (req, res, next) => {
+  try {
+    const value = validate(updateLeaveSchema, req.body, next);
+    if (!value) return;
+
+    const leave = await leaveService.updateLeave(req.params.id, value, req.user);
+
+    res.status(200).json({
+      success: true,
+      message: "Leave request updated successfully",
+      data: { leave }
     });
   } catch (error) {
     next(error);

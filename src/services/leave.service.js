@@ -37,11 +37,6 @@ const validateDateRange = (fromDate, toDate, dayType = "Full-day") => {
     throwError("From date cannot be after to date", 400);
   }
 
-  const today = getStartOfDay(new Date());
-  if (from < today) {
-    throwError("From date cannot be in the past", 400);
-  }
-
   if (dayType === "Half-day" && from.getTime() !== to.getTime()) {
     throwError("Half-day leave must start and end on the same date", 400);
   }
@@ -227,11 +222,11 @@ export const applyLeave = async (leaveData, requestingUser) => {
   }
 
   const dayType = leaveData.dayType || "Full-day";
-  const halfDayPeriod = dayType === "Half-day" ? leaveData.halfDayPeriod : null;
   const { from, to, leaveDays } = validateDateRange(leaveData.fromDate, leaveData.toDate, dayType);
-  const session = await mongoose.startSession();
+  let session;
 
   try {
+    session = await mongoose.startSession();
     let createdLeave;
 
     await session.withTransaction(async () => {
@@ -241,7 +236,6 @@ export const applyLeave = async (leaveData, requestingUser) => {
         employeeId: requestingUser.employeeId,
         fromDate: from,
         toDate: to,
-        halfDayPeriod: dayType === "Half-day" ? halfDayPeriod : undefined,
         session
       });
 
@@ -257,7 +251,6 @@ export const applyLeave = async (leaveData, requestingUser) => {
           toDate: to,
           leaveDays,
           dayType,
-          halfDayPeriod,
           reason: leaveData.reason || "",
           appliedBy: requestingUser.userId
         },
@@ -268,7 +261,7 @@ export const applyLeave = async (leaveData, requestingUser) => {
     const leave = await leaveRepository.findLeaveById(createdLeave._id);
     return normalizeLeave(leave);
   } finally {
-    session.endSession();
+    if (session) session.endSession();
   }
 };
 
@@ -310,9 +303,10 @@ export const getLeaveById = async (leaveId, requestingUser) => {
 export const approveLeave = async (leaveId, requestingUser) => {
   validateObjectId(leaveId, "Leave ID");
 
-  const session = await mongoose.startSession();
+  let session;
 
   try {
+    session = await mongoose.startSession();
     let updatedLeave;
 
     await session.withTransaction(async () => {
@@ -337,7 +331,6 @@ export const approveLeave = async (leaveId, requestingUser) => {
         fromDate: leave.fromDate,
         toDate: leave.toDate,
         ignoredLeaveId: leave._id,
-        halfDayPeriod: leave.halfDayPeriod || undefined,
         session
       });
 
@@ -384,16 +377,17 @@ export const approveLeave = async (leaveId, requestingUser) => {
 
     return normalizeLeave(updatedLeave);
   } finally {
-    session.endSession();
+    if (session) session.endSession();
   }
 };
 
 export const rejectLeave = async (leaveId, rejectData, requestingUser) => {
   validateObjectId(leaveId, "Leave ID");
 
-  const session = await mongoose.startSession();
+  let session;
 
   try {
+    session = await mongoose.startSession();
     let updatedLeave;
 
     await session.withTransaction(async () => {
@@ -429,16 +423,17 @@ export const rejectLeave = async (leaveId, rejectData, requestingUser) => {
 
     return normalizeLeave(updatedLeave);
   } finally {
-    session.endSession();
+    if (session) session.endSession();
   }
 };
 
 export const cancelLeave = async (leaveId, cancelData, requestingUser) => {
   validateObjectId(leaveId, "Leave ID");
 
-  const session = await mongoose.startSession();
+  let session;
 
   try {
+    session = await mongoose.startSession();
     let updatedLeave;
 
     await session.withTransaction(async () => {
@@ -491,7 +486,7 @@ export const cancelLeave = async (leaveId, cancelData, requestingUser) => {
 
     return normalizeLeave(updatedLeave);
   } finally {
-    session.endSession();
+    if (session) session.endSession();
   }
 };
 
@@ -501,6 +496,67 @@ export const getMyLeaves = async (filters, requestingUser) => {
   }
 
   return getLeaves({ ...filters, employee: requestingUser.employeeId }, requestingUser);
+};
+
+export const updateLeave = async (leaveId, leaveData, requestingUser) => {
+  validateObjectId(leaveId, "Leave ID");
+
+  const dayType = leaveData.dayType || "Full-day";
+  const { from, to, leaveDays } = validateDateRange(leaveData.fromDate, leaveData.toDate, dayType);
+  let session;
+
+  try {
+    session = await mongoose.startSession();
+    let updatedLeave;
+
+    await session.withTransaction(async () => {
+      const existing = await leaveRepository.findLeaveById(leaveId, session);
+
+      if (!existing) {
+        throwError("Leave request not found", 404);
+      }
+
+      if (existing.status !== "Pending") {
+        throwError("Only pending leave requests can be edited", 400);
+      }
+
+      const canEdit =
+        requestingUser.role === "Admin" ||
+        existing.employeeId?._id?.toString() === requestingUser.employeeId ||
+        existing.appliedBy?.toString() === requestingUser.userId;
+
+      if (!canEdit) {
+        throwError("You do not have permission to edit this leave request", 403);
+      }
+
+      const overlaps = await leaveRepository.hasOverlappingLeave({
+        employeeId: existing.employeeId._id || existing.employeeId,
+        fromDate: from,
+        toDate: to,
+        ignoredLeaveId: existing._id,
+        session
+      });
+
+      if (overlaps) {
+        throwError("Updated leave request overlaps with an existing pending or approved leave", 409);
+      }
+
+      const updateData = {
+        leaveType: leaveData.leaveType,
+        fromDate: from,
+        toDate: to,
+        leaveDays,
+        dayType,
+        reason: leaveData.reason || ""
+      };
+
+      updatedLeave = await leaveRepository.updateLeaveById(leaveId, updateData, session);
+    });
+
+    return normalizeLeave(updatedLeave);
+  } finally {
+    if (session) session.endSession();
+  }
 };
 
 export const getMyLeaveBalance = async (requestingUser) => {

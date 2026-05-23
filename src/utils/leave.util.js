@@ -5,8 +5,7 @@ export const LEAVE_TYPES = ["CL", "SL", "PL", "LOP"];
 export const LEAVE_STATUSES = ["Pending", "Approved", "Rejected", "Cancelled"];
 export const ACTIVE_LEAVE_STATUSES = ["Pending", "Approved"];
 export const LEAVE_DAY_TYPES = ["Full-day", "Half-day"];
-export const HALF_DAY_PERIODS = ["First-half", "Second-half"];
-export const DEFAULT_LEAVE_BALANCE = {
+const DEFAULT_LEAVE_BALANCE = {
   CL: 12,
   SL: 12,
   PL: 12,
@@ -83,7 +82,7 @@ export const getLeaveYear = (date = new Date()) => {
   return new Date(date).getUTCFullYear();
 };
 
-export const buildDefaultLeaveBalance = (employeeId, year, lastResetAt = null) => ({
+const buildDefaultLeaveBalance = (employeeId, year, lastResetAt = null) => ({
   employeeId,
   year,
   ...DEFAULT_LEAVE_BALANCE,
@@ -102,13 +101,16 @@ export const resetYearlyLeaveBalances = async (year = new Date().getUTCFullYear(
   const employees = await Employee.find({ status: "Active" }).select("_id").lean();
   const resetAt = new Date();
 
-  const operations = employees.map((employee) => ({
+  const operations = employees.map((employee) => {
+    const { LOP, ...resetData } = buildDefaultLeaveBalance(employee._id, year, resetAt);
+    return {
     updateOne: {
       filter: { employeeId: employee._id, year },
-      update: { $set: buildDefaultLeaveBalance(employee._id, year, resetAt) },
+      update: { $set: resetData },
       upsert: true
     }
-  }));
+    };
+  });
 
   if (operations.length === 0) {
     return { matched: 0, modified: 0, upserted: 0 };
@@ -127,6 +129,15 @@ const shouldRunLeaveResetToday = (now) => now.getUTCMonth() === 0 && now.getUTCD
 
 let _resetInterval = null;
 
+const getLatestResetYear = async () => {
+  try {
+    const latest = await LeaveBalance.findOne().sort({ year: -1 }).select("year").lean();
+    return latest?.year || null;
+  } catch {
+    return null;
+  }
+};
+
 export const startLeaveBalanceResetJob = () => {
   if (_resetInterval) {
     clearInterval(_resetInterval);
@@ -136,15 +147,31 @@ export const startLeaveBalanceResetJob = () => {
 
   const runIfDue = async () => {
     const now = new Date();
+    const currentYear = now.getUTCFullYear();
 
-    if (!shouldRunLeaveResetToday(now) || lastRunYear === now.getUTCFullYear()) {
+    if (!shouldRunLeaveResetToday(now) || lastRunYear === currentYear) {
       return;
     }
 
-    lastRunYear = now.getUTCFullYear();
+    lastRunYear = currentYear;
     const result = await resetYearlyLeaveBalances(lastRunYear);
     console.log(`Leave balances reset for ${lastRunYear}`, result);
   };
+
+  const catchUpMissedReset = async () => {
+    const currentYear = new Date().getUTCFullYear();
+    const latestYear = await getLatestResetYear();
+
+    if (latestYear !== null && latestYear < currentYear) {
+      console.log(`Missed leave balance reset detected. Latest: ${latestYear}, Current: ${currentYear}. Running catch-up reset.`);
+      const result = await resetYearlyLeaveBalances(currentYear);
+      console.log(`Catch-up leave balances reset for ${currentYear}`, result);
+    }
+  };
+
+  catchUpMissedReset().catch((error) => {
+    console.error("Leave balance catch-up reset failed", error);
+  });
 
   runIfDue().catch((error) => {
     console.error("Leave balance reset failed", error);
