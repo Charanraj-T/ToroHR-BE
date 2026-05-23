@@ -6,6 +6,8 @@ import { errorHandler, notFound } from "./middlewares/error.middleware.js";
 import authRoutes from "./routes/auth.routes.js";
 import employeeRoutes from "./routes/employee.routes.js";
 import attendanceRoutes from "./routes/attendance.routes.js";
+import leaveRoutes from "./routes/leave.routes.js";
+import { startLeaveBalanceResetJob } from "./utils/leave.util.js";
 
 dotenv.config();
 
@@ -25,11 +27,14 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/attendance", attendanceRoutes);
+app.use("/api/leaves", leaveRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
 
 connectDB().then(() => {
+  startLeaveBalanceResetJob();
+
   app.listen(PORT, () => {
     console.log(`ToroHR server running on port ${PORT}`);
   });
