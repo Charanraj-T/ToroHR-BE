@@ -8,6 +8,7 @@ import employeeRoutes from "./routes/employee.routes.js";
 import attendanceRoutes from "./routes/attendance.routes.js";
 import leaveRoutes from "./routes/leave.routes.js";
 import holidayRoutes from "./routes/holiday.routes.js";
+import settingsRoutes from "./routes/settings.routes.js";
 import { startLeaveBalanceResetJob } from "./utils/leave.util.js";
 import { initializeHolidaysCache } from "./services/holiday.service.js";
 
@@ -31,6 +32,7 @@ app.use("/api/employees", employeeRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/leaves", leaveRoutes);
 app.use("/api/holidays", holidayRoutes);
+app.use("/api/settings", settingsRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
