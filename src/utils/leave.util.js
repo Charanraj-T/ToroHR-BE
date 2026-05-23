@@ -62,13 +62,20 @@ export const calculateLeaveDays = (fromDate, toDate, dayType = "Full-day") => {
   return total;
 };
 
-export const getWorkingDatesBetween = (fromDate, toDate) => {
+export const getWorkingDatesBetween = (fromDate, toDate, excludeDates = []) => {
+  const excludeSet = new Set();
+  for (const d of excludeDates) {
+    const dt = new Date(d);
+    excludeSet.add(dt.toISOString().split('T')[0]);
+  }
+
   const dates = [];
   const cursor = getStartOfDay(fromDate);
   const end = getStartOfDay(toDate);
 
   while (cursor <= end) {
-    if (!isWeekend(cursor)) {
+    const dateStr = cursor.toISOString().split('T')[0];
+    if (!isWeekend(cursor) && !excludeSet.has(dateStr)) {
       dates.push(new Date(cursor));
     }
 

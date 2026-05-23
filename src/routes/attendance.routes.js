@@ -44,15 +44,15 @@ router.put(
   attendanceController.updateAttendance,
 );
 
-router.get("/summary", attendanceController.getSummary);
+router.get("/summary", authorizeRoles("Admin", "Manager"), attendanceController.getSummary);
 router.get(
   "/stats/employee",
   authorizeRoles("Employee", "Manager"),
   attendanceController.getEmployeeStats,
 );
-router.get("/export/csv", attendanceController.exportCsv);
-router.get("/", attendanceController.getAttendance);
-router.get("/:id", attendanceController.getAttendanceById);
+router.get("/export/csv", authorizeRoles("Admin", "Manager"), attendanceController.exportCsv);
+router.get("/", authorizeRoles("Admin", "Manager", "Employee"), attendanceController.getAttendance);
+router.get("/:id", authorizeRoles("Admin", "Manager", "Employee"), attendanceController.getAttendanceById);
 router.delete(
   "/:id",
   authorizeRoles("Admin"),

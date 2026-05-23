@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { normalizeLeave, normalizeLeaveBalance, normalizeLeaveList } from "../dtos/leave.dto.js";
 import * as leaveRepository from "../repositories/leave.repository.js";
+import { findHolidaysInDateRange } from "../repositories/holiday.repository.js";
 import {
   calculateLeaveDays,
   getBalanceUpdateForReversal,
@@ -92,9 +93,12 @@ const ensureApprovalAccess = (requestingUser, employee) => {
 
   if (requestingUser.role === "Manager") {
     const isOwnLeave = employee._id.toString() === requestingUser.employeeId;
-    const isTeamMember = employee.reportingManagerId?.toString() === requestingUser.employeeId;
+    if (isOwnLeave) {
+      throwError("Managers cannot approve or reject their own leave", 403);
+    }
 
-    if (isOwnLeave || isTeamMember) {
+    const isTeamMember = employee.reportingManagerId?.toString() === requestingUser.employeeId;
+    if (isTeamMember) {
       return;
     }
   }
@@ -243,6 +247,27 @@ export const applyLeave = async (leaveData, requestingUser) => {
         throwError("Leave request overlaps with an existing pending or approved leave", 409);
       }
 
+      const holidaysInRange = await findHolidaysInDateRange(from, to);
+      if (holidaysInRange.length > 0) {
+        const names = holidaysInRange.map(h => h.name).join(", ");
+        throwError(`Selected date range includes a holiday: ${names}`, 400);
+      }
+
+      const attendanceConflict = await leaveRepository.hasAttendanceConflict({
+        employeeId: requestingUser.employeeId,
+        fromDate: from,
+        toDate: to,
+        dayType,
+        session
+      });
+
+      if (attendanceConflict) {
+        throwError(
+          `Cannot apply leave: attendance already marked as "${attendanceConflict.status}" on ${attendanceConflict.date.toISOString().split('T')[0]}`,
+          400
+        );
+      }
+
       createdLeave = await leaveRepository.createLeave(
         {
           employeeId: requestingUser.employeeId,
@@ -351,7 +376,8 @@ export const approveLeave = async (leaveId, requestingUser) => {
         throwError(`Insufficient ${leave.leaveType} balance`, 400);
       }
 
-      const dates = getWorkingDatesBetween(leave.fromDate, leave.toDate);
+      const holidaysInRange = await findHolidaysInDateRange(leave.fromDate, leave.toDate);
+      const dates = getWorkingDatesBetween(leave.fromDate, leave.toDate, holidaysInRange.map(h => h.date));
       await leaveRepository.markAttendanceAsLeave({
         employeeId: leave.employeeId._id,
         dates,
@@ -462,7 +488,8 @@ export const cancelLeave = async (leaveId, cancelData, requestingUser) => {
           session
         );
 
-        const dates = getWorkingDatesBetween(leave.fromDate, leave.toDate);
+        const holidaysInRange = await findHolidaysInDateRange(leave.fromDate, leave.toDate);
+        const dates = getWorkingDatesBetween(leave.fromDate, leave.toDate, holidaysInRange.map(h => h.date));
         await leaveRepository.clearLeaveAttendance({
           employeeId: leave.employeeId._id,
           dates,
@@ -476,9 +503,7 @@ export const cancelLeave = async (leaveId, cancelData, requestingUser) => {
           status: "Cancelled",
           cancelledBy: requestingUser.userId,
           cancelledAt: new Date(),
-          cancellationReason: cancelData.cancellationReason || "",
-          approvedBy: null,
-          approvedAt: null
+          cancellationReason: cancelData.cancellationReason || ""
         },
         session
       );
@@ -539,6 +564,27 @@ export const updateLeave = async (leaveId, leaveData, requestingUser) => {
 
       if (overlaps) {
         throwError("Updated leave request overlaps with an existing pending or approved leave", 409);
+      }
+
+      const holidaysInRange = await findHolidaysInDateRange(from, to);
+      if (holidaysInRange.length > 0) {
+        const names = holidaysInRange.map(h => h.name).join(", ");
+        throwError(`Selected date range includes a holiday: ${names}`, 400);
+      }
+
+      const attendanceConflict = await leaveRepository.hasAttendanceConflict({
+        employeeId: existing.employeeId._id || existing.employeeId,
+        fromDate: from,
+        toDate: to,
+        dayType,
+        session
+      });
+
+      if (attendanceConflict) {
+        throwError(
+          `Cannot update leave: attendance already marked as "${attendanceConflict.status}" on ${attendanceConflict.date.toISOString().split('T')[0]}`,
+          400
+        );
       }
 
       const updateData = {

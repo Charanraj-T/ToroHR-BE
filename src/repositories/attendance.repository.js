@@ -53,6 +53,7 @@ const projectFields = {
   $project: {
     _id: 1,
     employeeId: 1,
+    employee: 1,
     date: 1,
     checkInTime: 1,
     checkOutTime: 1,
@@ -219,11 +220,13 @@ export const findTeamAttendance = async (managerId, filters = {}) => {
 export const getAttendanceForDateRange = async (startDate, endDate, filters = {}) => {
   const { employeeId, status, department, managerId } = filters;
 
+  const start = new Date(startDate);
+  start.setUTCHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setUTCHours(23, 59, 59, 999);
+
   const query = {
-    date: {
-      $gte: new Date(startDate),
-      $lte: new Date(endDate)
-    }
+    date: { $gte: start, $lte: end }
   };
 
   if (employeeId) {
@@ -308,25 +311,9 @@ export const getAttendanceSummaryForToday = async (filters = {}) => {
   return r;
 };
 
-export const existsAttendanceForDate = async (employeeId, date) => {
-  const [y, m, d] = date.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }).split("-").map(Number);
-  const startOfDay = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
-  const endOfDay = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
-
-  const count = await Attendance.countDocuments({
-    employeeId,
-    date: {
-      $gte: startOfDay,
-      $lte: endOfDay
-    }
-  });
-
-  return count > 0;
-};
-
 export const getEmployeeAttendanceStats = async (employeeId, month, year) => {
-  const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+  const startDate = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+  const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
   const pipeline = [
     {

@@ -35,6 +35,21 @@ const listLeavePopulateOptions = [
   }
 ];
 
+export const hasAttendanceConflict = async ({ employeeId, fromDate, toDate, dayType, session = null }) => {
+  const conflictingStatuses = ["Present", "Leave"];
+  if (dayType === "Full-day") {
+    conflictingStatuses.push("Half-day");
+  }
+
+  const existing = await Attendance.findOne({
+    employeeId,
+    date: { $gte: getStartOfDay(fromDate), $lte: getEndOfDay(toDate) },
+    status: { $in: conflictingStatuses }
+  }).session(session);
+
+  return existing;
+};
+
 export const findEmployeeById = (employeeId, session = null) => {
   return Employee.findById(employeeId).select("status reportingManagerId").session(session);
 };

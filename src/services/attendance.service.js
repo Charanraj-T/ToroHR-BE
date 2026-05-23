@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import Attendance from "../models/attendance.model.js";
 import Employee from "../models/employee.model.js";
+import Leave from "../models/leave.model.js";
+import { findHolidaysInDateRange } from "../repositories/holiday.repository.js";
 import * as attendanceRepository from "../repositories/attendance.repository.js";
 import {
   calculateHoursWorked,
@@ -16,7 +18,7 @@ export const checkIn = async (employeeId) => {
   session.startTransaction();
 
   try {
-    const employee = await Employee.findById(employeeId).session(session);
+    const employee = await Employee.findById(employeeId).populate("userId").session(session);
     if (!employee) {
       const error = new Error("Employee not found");
       error.statusCode = 404;
@@ -31,6 +33,30 @@ export const checkIn = async (employeeId) => {
 
     const now = new Date();
     const today = getStartOfDayIST(now);
+
+    const todayDateStr = today.toISOString().split('T')[0];
+    const todayStart = new Date(todayDateStr + 'T00:00:00.000Z');
+    const todayEnd = new Date(todayDateStr + 'T23:59:59.999Z');
+
+    const holidays = await findHolidaysInDateRange(todayStart, todayEnd);
+    if (holidays.length > 0) {
+      const error = new Error(`Today is a holiday: ${holidays[0].name}`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const approvedLeave = await Leave.findOne({
+      employeeId,
+      status: { $in: ["Approved"] },
+      fromDate: { $lte: todayEnd },
+      toDate: { $gte: todayStart }
+    }).session(session);
+
+    if (approvedLeave) {
+      const error = new Error("Cannot check in - you have an approved leave today");
+      error.statusCode = 400;
+      throw error;
+    }
 
     const existingAttendance = await Attendance.findOne(
       {
@@ -201,6 +227,30 @@ export const markAttendanceManual = async (
     const parsedDate = new Date(date);
     if (isFutureDate(parsedDate)) {
       const error = new Error("Cannot mark attendance for future date");
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const dateStr = date.split('T')[0];
+    const dateStart = new Date(dateStr + 'T00:00:00.000Z');
+    const dateEnd = new Date(dateStr + 'T23:59:59.999Z');
+
+    const holidays = await findHolidaysInDateRange(dateStart, dateEnd);
+    if (holidays.length > 0 && status !== "Holiday") {
+      const error = new Error(`Cannot mark attendance - ${dateStr} is a holiday: ${holidays[0].name}`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const approvedLeave = await Leave.findOne({
+      employeeId,
+      status: { $in: ["Approved"] },
+      fromDate: { $lte: dateEnd },
+      toDate: { $gte: dateStart }
+    }).session(session);
+
+    if (approvedLeave && status !== "Leave" && status !== "Half-day") {
+      const error = new Error(`Employee has an approved leave on ${dateStr}`);
       error.statusCode = 400;
       throw error;
     }

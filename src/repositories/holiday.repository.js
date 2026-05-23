@@ -1,0 +1,226 @@
+import Holiday from "../models/holiday.model.js";
+import { getHolidaysForYear } from "../utils/recurring-holiday.util.js";
+
+/**
+ * Find a holiday by ID with optional user details
+ * @param {string} id - Holiday ID
+ * @param {boolean} withUsers - Include user details
+ * @returns {Promise<Object>} Holiday document
+ */
+export const findHolidayById = async (id, withUsers = false) => {
+  const query = Holiday.findById(id);
+
+  if (withUsers) {
+    query.populate([
+      {
+        path: "createdBy",
+        select: "name email role",
+      },
+      {
+        path: "updatedBy",
+        select: "name email role",
+      },
+    ]);
+  }
+
+  return query.exec();
+};
+
+/**
+ * Find all holidays with pagination and optional filters
+ * @param {Object} filters - Filter criteria (search, year, recurring)
+ * @param {number} page - Page number (1-indexed)
+ * @param {number} limit - Items per page
+ * @param {boolean} withUsers - Populate createdBy/updatedBy
+ * @returns {Promise<Object>} Pagination result
+ */
+export const findHolidaysWithPagination = async (
+  filters = {},
+  page = 1,
+  limit = 20,
+  withUsers = false,
+) => {
+  const query = {};
+
+  if (filters.search && filters.search.trim()) {
+    const searchRegex = new RegExp(filters.search.trim(), "i");
+    query.$or = [{ name: searchRegex }, { description: searchRegex }];
+  }
+
+  if (filters.year) {
+    const year = parseInt(filters.year, 10);
+    const startOfYear = new Date(Date.UTC(year, 0, 1));
+    const endOfYear = new Date(Date.UTC(year, 11, 31, 23, 59, 59, 999));
+
+    query.date = {
+      $gte: startOfYear,
+      $lte: endOfYear,
+    };
+  }
+
+  if (filters.recurring !== undefined && filters.recurring !== null) {
+    query.isRecurringYearly = filters.recurring;
+  }
+
+  const skip = (page - 1) * limit;
+
+  let findQuery = Holiday.find(query).sort({ date: 1 }).skip(skip).limit(limit);
+
+  if (withUsers) {
+    findQuery = findQuery.populate([
+      { path: "createdBy", select: "name email role" },
+      { path: "updatedBy", select: "name email role" },
+    ]);
+  } else {
+    findQuery = findQuery.lean();
+  }
+
+  const [data, total] = await Promise.all([
+    findQuery,
+    Holiday.countDocuments(query),
+  ]);
+
+  const pages = Math.ceil(total / limit);
+
+  return { data, total, page, limit, pages };
+};
+
+/**
+ * Create a new holiday
+ * @param {Object} data - Holiday data
+ * @param {string} userId - ID of user creating the holiday
+ * @returns {Promise<Object>} Created holiday document
+ */
+export const createHoliday = async (data, userId) => {
+  const holiday = new Holiday({
+    ...data,
+    createdBy: userId,
+  });
+
+  return holiday.save();
+};
+
+/**
+ * Update a holiday
+ * @param {string} id - Holiday ID
+ * @param {Object} data - Update data
+ * @param {string} userId - ID of user updating the holiday
+ * @returns {Promise<Object>} Updated holiday document
+ */
+export const updateHoliday = async (id, data, userId) => {
+  return Holiday.findByIdAndUpdate(
+    id,
+    {
+      ...data,
+      updatedBy: userId,
+    },
+    { new: true, runValidators: true },
+  );
+};
+
+/**
+ * Delete a holiday
+ * @param {string} id - Holiday ID
+ * @returns {Promise<Object>} Deleted holiday document
+ */
+export const deleteHoliday = async (id) => {
+  return Holiday.findByIdAndDelete(id);
+};
+
+/**
+ * Check if a holiday with the same name and date already exists
+ * @param {string} name - Holiday name
+ * @param {Date} date - Holiday date
+ * @param {string} excludeId - ID to exclude from check (for updates)
+ * @returns {Promise<boolean>} True if duplicate exists
+ */
+/**
+ * Find holidays that fall within a given date range
+ * @param {Date} fromDate - Start of range
+ * @param {Date} toDate - End of range
+ * @param {Object} [session] - MongoDB session for transactions
+ * @returns {Promise<Array>} Matching holidays
+ */
+export const findHolidaysInDateRange = async (fromDate, toDate) => {
+  const fromYear = new Date(fromDate).getUTCFullYear();
+  const toYear = new Date(toDate).getUTCFullYear();
+  const start = new Date(fromDate);
+  start.setUTCHours(0, 0, 0, 0);
+  const end = new Date(toDate);
+  end.setUTCHours(23, 59, 59, 999);
+
+  const holidays = [];
+
+  for (let year = fromYear; year <= toYear; year++) {
+    const yearHolidays = await getHolidaysForYear(year);
+    for (const h of yearHolidays) {
+      const d = new Date(h.date);
+      if (d >= start && d <= end) {
+        holidays.push(h);
+      }
+    }
+  }
+
+  return holidays;
+};
+
+/**
+ * Check if a holiday with the same name and month/day already exists across years
+ * (catches recurring <-> non-recurring conflicts on the same month and day)
+ * @param {string} name - Holiday name
+ * @param {Date} date - Holiday date (only month and day are used)
+ * @param {string} excludeId - ID to exclude from check
+ * @returns {Promise<boolean>} True if cross-year duplicate exists
+ */
+export const checkDuplicateHolidayCrossYear = async (
+  name,
+  date,
+  excludeId = null,
+) => {
+  const d = new Date(date);
+  const month = d.getUTCMonth();
+  const day = d.getUTCDate();
+
+  const match = {
+    $expr: {
+      $and: [
+        { $eq: [{ $month: "$date" }, month + 1] },
+        { $eq: [{ $dayOfMonth: "$date" }, day] },
+      ],
+    },
+  };
+
+  const query = {
+    name: name.trim(),
+    ...match,
+  };
+
+  if (excludeId) {
+    query._id = { $ne: excludeId };
+  }
+
+  const count = await Holiday.countDocuments(query);
+  return count > 0;
+};
+
+export const checkDuplicateHoliday = async (name, date, excludeId = null) => {
+  const d = new Date(date);
+  const start = new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0),
+  );
+  const end = new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 24, 0, 0, 0),
+  );
+
+  const query = {
+    name: name.trim(),
+    date: { $gte: start, $lt: end },
+  };
+
+  if (excludeId) {
+    query._id = { $ne: excludeId };
+  }
+
+  const count = await Holiday.countDocuments(query);
+  return count > 0;
+};

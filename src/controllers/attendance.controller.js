@@ -259,6 +259,7 @@ export const exportCsv = async (req, res, next) => {
     }
 
     if (req.user.role === "Manager") {
+      delete filters.employeeId;
       filters.managerId = req.user.employeeId;
     }
 
