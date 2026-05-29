@@ -1,3 +1,5 @@
+const HEADERS = ["Employee", "Worked", "Leave", "Holiday", "Absent", "Working Days"];
+
 const escapeCsvField = (field) => {
   if (field === null || field === undefined) {
     return "";
@@ -12,77 +14,35 @@ const escapeCsvField = (field) => {
   return stringField;
 };
 
-const formatTime = (dateTime) => {
-  if (!dateTime) return "";
-  return new Date(dateTime).toLocaleString("en-IN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit"
-  });
-};
-
-const formatDate = (date) => {
-  if (!date) return "";
-  return new Date(date).toLocaleDateString("en-IN");
-};
-
-const generateCsvHeaders = () => {
-  const headers = [
-    "Employee ID",
-    "Employee Name",
-    "Date",
-    "Check-In Time",
-    "Check-Out Time",
-    "Hours Worked",
-    "Status",
-    "Department",
-    "Marking Method",
-    "Notes"
-  ];
-
-  return headers.map((header) => escapeCsvField(header)).join(",");
-};
-
-const generateCsvRow = (attendance) => {
-  const employee = attendance.employeeId;
-
+const generateCsvRow = (employee) => {
   const row = [
-    employee.employeeId || "",
-    employee.fullName || "",
-    formatDate(attendance.date),
-    formatTime(attendance.checkInTime),
-    formatTime(attendance.checkOutTime),
-    attendance.hoursWorked || 0,
-    attendance.status || "",
-    employee.department || "",
-    attendance.markingMethod || "",
-    attendance.notes || ""
+    employee.employeeName,
+    employee.worked,
+    employee.leave,
+    employee.holiday,
+    employee.absent,
+    employee.workingDays
   ];
 
   return row.map((field) => escapeCsvField(field)).join(",");
 };
 
-export const generateCsvContent = (attendanceRecords) => {
-  if (!Array.isArray(attendanceRecords) || attendanceRecords.length === 0) {
-    return generateCsvHeaders();
+export const generateCsvContent = (employees) => {
+  if (!Array.isArray(employees) || employees.length === 0) {
+    return HEADERS.map((h) => escapeCsvField(h)).join(",");
   }
 
-  const lines = [generateCsvHeaders()];
+  const lines = [HEADERS.map((h) => escapeCsvField(h)).join(",")];
 
-  for (const record of attendanceRecords) {
-    lines.push(generateCsvRow(record));
+  for (const emp of employees) {
+    lines.push(generateCsvRow(emp));
   }
 
   return lines.join("\n");
 };
 
-export const generateCsvFilename = () => {
-  const now = new Date();
-  const timestamp = now.toISOString().split("T")[0];
-  return `attendance_export_${timestamp}.csv`;
+export const generateCsvFilename = (month, year) => {
+  return `attendance-summary-${year}-${String(month).padStart(2, "0")}.csv`;
 };
 
 export const setCsvResponseHeaders = (res, filename) => {

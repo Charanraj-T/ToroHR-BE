@@ -242,9 +242,9 @@ export const exportCsv = async (req, res, next) => {
       return next(err);
     }
 
-    const { startDate, endDate, employeeId, department, managerId, status } = value;
+    const { startDate, endDate, employeeId, department, managerId } = value;
 
-    let filters = { status, department };
+    let filters = { department };
 
     if (employeeId) {
       filters.employeeId = employeeId;
@@ -263,17 +263,18 @@ export const exportCsv = async (req, res, next) => {
       filters.managerId = req.user.employeeId;
     }
 
-    const records = await attendanceService.getAttendanceForExport(startDate, endDate, filters);
+    const employees = await attendanceService.getAttendanceForExport(startDate, endDate, filters);
 
-    if (!records || records.length === 0) {
+    if (!employees || employees.length === 0) {
       return res.status(200).json({
         success: true,
         message: "No records found for export"
       });
     }
 
-    const csvContent = generateCsvContent(records);
-    const filename = generateCsvFilename();
+    const csvContent = generateCsvContent(employees);
+    const [y, m] = startDate.split("-").map(Number);
+    const filename = generateCsvFilename(m, y);
 
     setCsvResponseHeaders(res, filename);
     res.send(csvContent);

@@ -506,9 +506,45 @@ export const getTeamAttendance = async (managerId, filters) => {
 };
 
 export const getAttendanceForExport = async (startDate, endDate, filters = {}) => {
-  const records = await attendanceRepository.getAttendanceForDateRange(startDate, endDate, filters);
+  const employeeSummaries = await attendanceRepository.getAttendanceSummaryForDateRange(startDate, endDate, filters);
 
-  return normalizeAttendanceList(records);
+  const start = new Date(startDate);
+  start.setUTCHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setUTCHours(23, 59, 59, 999);
+
+  const holidays = await findHolidaysInDateRange(start, end);
+  const holidayDateSet = new Set(holidays.map(h => {
+    const d = new Date(h.date);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  }));
+
+  let weekendCount = 0;
+  let holidayCount = 0;
+  const current = new Date(start);
+  while (current <= end) {
+    const dayOfWeek = current.getUTCDay();
+    const dateStr = `${current.getUTCFullYear()}-${String(current.getUTCMonth() + 1).padStart(2, '0')}-${String(current.getUTCDate()).padStart(2, '0')}`;
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      weekendCount++;
+    } else if (holidayDateSet.has(dateStr)) {
+      holidayCount++;
+    }
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+
+  const totalHoliday = weekendCount + holidayCount;
+  const totalDays = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+  const workingDays = totalDays - totalHoliday;
+
+  return employeeSummaries.map((emp) => ({
+    employeeName: emp.employeeName,
+    worked: (emp.present || 0) + (emp.halfday || 0) * 0.5,
+    leave: emp.leave || 0,
+    holiday: totalHoliday,
+    absent: emp.absent || 0,
+    workingDays
+  }));
 };
 
 export const getAttendanceSummary = async (filters = {}) => {

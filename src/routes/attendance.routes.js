@@ -50,7 +50,7 @@ router.get(
   authorizeRoles("Employee", "Manager"),
   attendanceController.getEmployeeStats,
 );
-router.get("/export/csv", authorizeRoles("Admin", "Manager"), attendanceController.exportCsv);
+router.get("/export/csv", authorizeRoles("Admin", "Manager", "Employee"), attendanceController.exportCsv);
 router.get("/", authorizeRoles("Admin", "Manager", "Employee"), attendanceController.getAttendance);
 router.get("/:id", authorizeRoles("Admin", "Manager", "Employee"), attendanceController.getAttendanceById);
 router.delete(

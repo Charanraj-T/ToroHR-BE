@@ -340,26 +340,18 @@ export const getEmployeeAttendanceStats = async (employeeId, month, year) => {
     present: 0,
     absent: 0,
     leave: 0,
-    weekend: 0,
     halfday: 0,
     presentHours: 0,
     absentHours: 0,
     leaveHours: 0,
     halfdayHours: 0,
-    attendanceRate: 0
   };
-
-  let totalWorkingDays = 0;
 
   for (const result of results) {
     const status = result._id.toLowerCase().replace("-", "");
 
     if (status in stats) {
       stats[status] = result.count;
-
-      if (status !== "weekend") {
-        totalWorkingDays += result.count;
-      }
 
       const hoursKey = `${status}Hours`;
       if (hoursKey in stats) {
@@ -368,13 +360,58 @@ export const getEmployeeAttendanceStats = async (employeeId, month, year) => {
     }
   }
 
-  if (totalWorkingDays > 0) {
-    stats.attendanceRate = Math.round((stats.present / totalWorkingDays) * 100);
-  }
-
   return stats;
 };
 
 export const deleteAttendance = (id) => {
   return Attendance.findByIdAndDelete(id);
+};
+
+export const getAttendanceSummaryForDateRange = async (startDate, endDate, filters = {}) => {
+  const { employeeId, department, managerId } = filters;
+
+  const start = new Date(startDate);
+  start.setUTCHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setUTCHours(23, 59, 59, 999);
+
+  const match = {
+    date: { $gte: start, $lte: end }
+  };
+  if (employeeId) match.employeeId = new mongoose.Types.ObjectId(employeeId);
+
+  const pipeline = [
+    { $match: match },
+    {
+      $lookup: {
+        from: "employees",
+        localField: "employeeId",
+        foreignField: "_id",
+        as: "employee"
+      }
+    },
+    { $unwind: "$employee" }
+  ];
+
+  if (department) {
+    pipeline.push({ $match: { "employee.department": department } });
+  }
+  if (managerId) {
+    pipeline.push({ $match: { "employee.reportingManagerId": new mongoose.Types.ObjectId(managerId) } });
+  }
+
+  pipeline.push({
+    $group: {
+      _id: "$employee._id",
+      employeeName: { $first: "$employee.fullName" },
+      present: { $sum: { $cond: [{ $eq: ["$status", "Present"] }, 1, 0] } },
+      absent: { $sum: { $cond: [{ $eq: ["$status", "Absent"] }, 1, 0] } },
+      leave: { $sum: { $cond: [{ $eq: ["$status", "Leave"] }, 1, 0] } },
+      halfday: { $sum: { $cond: [{ $eq: ["$status", "Half-day"] }, 1, 0] } },
+      totalHours: { $sum: "$hoursWorked" }
+    }
+  });
+  pipeline.push({ $sort: { employeeName: 1 } });
+
+  return Attendance.aggregate(pipeline);
 };
