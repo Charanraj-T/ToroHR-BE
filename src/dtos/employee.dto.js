@@ -1,6 +1,6 @@
 import Joi from "joi";
 
-export const createEmployeeSchema = Joi.object({
+const createEmployeeSchema = Joi.object({
   fullName: Joi.string().trim().required(),
   email: Joi.string().email().required(),
   phoneNumber: Joi.string().trim().required(),
@@ -21,7 +21,7 @@ export const createEmployeeSchema = Joi.object({
   aadhaarNumber: Joi.string().trim().allow("", null)
 });
 
-export const updateEmployeeSchema = Joi.object({
+const updateEmployeeSchema = Joi.object({
   fullName: Joi.string().trim(),
   email: Joi.string().email(),
   phoneNumber: Joi.string().trim(),

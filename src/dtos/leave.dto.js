@@ -1,4 +1,4 @@
-export const normalizeEmployeeForLeave = (employee) => {
+const normalizeEmployeeForLeave = (employee) => {
   if (!employee) {
     return null;
   }

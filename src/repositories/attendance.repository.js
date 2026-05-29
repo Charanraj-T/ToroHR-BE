@@ -217,53 +217,6 @@ export const findTeamAttendance = async (managerId, filters = {}) => {
   };
 };
 
-export const getAttendanceForDateRange = async (startDate, endDate, filters = {}) => {
-  const { employeeId, status, department, managerId } = filters;
-
-  const start = new Date(startDate);
-  start.setUTCHours(0, 0, 0, 0);
-  const end = new Date(endDate);
-  end.setUTCHours(23, 59, 59, 999);
-
-  const query = {
-    date: { $gte: start, $lte: end }
-  };
-
-  if (employeeId) {
-    query.employeeId = new mongoose.Types.ObjectId(employeeId);
-  }
-
-  if (status) {
-    query.status = status;
-  }
-
-  const pipeline = [
-    { $match: query },
-    projectFields,
-    {
-      $lookup: {
-        from: "employees",
-        localField: "employeeId",
-        foreignField: "_id",
-        as: "employee"
-      }
-    },
-    { $unwind: "$employee" }
-  ];
-
-  if (department) {
-    pipeline.push({ $match: { "employee.department": department } });
-  }
-
-  if (managerId) {
-    pipeline.push({ $match: { "employee.reportingManagerId": new mongoose.Types.ObjectId(managerId) } });
-  }
-
-  pipeline.push({ $sort: { date: 1 } });
-
-  return Attendance.aggregate(pipeline);
-};
-
 export const getAttendanceSummaryForToday = async (filters = {}) => {
   const now = new Date();
   const [y, m, d] = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }).split("-").map(Number);

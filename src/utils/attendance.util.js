@@ -1,12 +1,4 @@
-export const getStartOfDayIST = (date) => {
-  const [y, m, d] = date.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }).split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
-};
-
-export const getEndOfDayIST = (date) => {
-  const [y, m, d] = date.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }).split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
-};
+import { getStartOfDayIST } from "./date.util.js";
 
 export const calculateHoursWorked = (checkInTime, checkOutTime) => {
   if (!checkInTime || !checkOutTime) {
@@ -30,7 +22,7 @@ export const checkIfLate = (checkInTime, gracePeriodMinutes = 5) => {
   }
 
   const checkInDate = new Date(checkInTime);
-  const istDateStr = checkInDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const istDateStr = checkInDate.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   const officeStartIST = new Date(`${istDateStr}T09:00:00+05:30`);
 
   const diffMs = checkInDate - officeStartIST;
@@ -48,11 +40,7 @@ export const checkIfLate = (checkInTime, gracePeriodMinutes = 5) => {
 
 export const isFutureDate = (date) => {
   const now = new Date();
-  const [y, m, d] = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }).split("-").map(Number);
-  const todayIST = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
-
-  const [cy, cm, cd] = date.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }).split("-").map(Number);
-  const checkDateIST = new Date(Date.UTC(cy, cm - 1, cd, 0, 0, 0, 0));
-
+  const todayIST = getStartOfDayIST(now);
+  const checkDateIST = getStartOfDayIST(date);
   return checkDateIST > todayIST;
 };

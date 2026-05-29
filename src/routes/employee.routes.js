@@ -10,8 +10,6 @@ const canViewProfile = (req, res, next) => {
   const { role, employeeId } = req.user;
   const targetId = req.params.id;
 
-  console.log('DEBUG Auth:', { role, userEmployeeId: employeeId, targetId });
-
   if (role === "Admin" || role === "Manager" || (employeeId && employeeId === targetId)) {
     return next();
   }

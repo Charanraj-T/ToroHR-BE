@@ -9,10 +9,11 @@ import {
   exportAttendanceSchema
 } from "../dtos/attendance.dto.js";
 import { generateCsvContent, generateCsvFilename, setCsvResponseHeaders } from "../utils/csv-export.util.js";
+import { getTodayIST } from "../utils/date.util.js";
 
 export const checkIn = async (req, res, next) => {
   try {
-    const { error, value } = checkInSchema.validate(req.body);
+    const { error } = checkInSchema.validate(req.body);
     if (error) {
       const err = new Error(error.details[0].message);
       err.statusCode = 400;
@@ -33,7 +34,7 @@ export const checkIn = async (req, res, next) => {
 
 export const checkOut = async (req, res, next) => {
   try {
-    const { error, value } = checkOutSchema.validate(req.body);
+    const { error } = checkOutSchema.validate(req.body);
     if (error) {
       const err = new Error(error.details[0].message);
       err.statusCode = 400;
@@ -221,8 +222,6 @@ export const getSummary = async (req, res, next) => {
 
     if (req.user.role === "Manager") {
       filters.managerId = req.user.employeeId;
-    } else if (req.user.role === "Employee") {
-      filters.employeeId = req.user.employeeId;
     }
 
     const result = await attendanceService.getAttendanceSummary(filters);
@@ -287,9 +286,9 @@ export const getEmployeeStats = async (req, res, next) => {
   try {
     const { month, year } = req.query;
 
-    const currentDate = new Date();
-    const queryMonth = month || currentDate.getMonth() + 1;
-    const queryYear = year || currentDate.getFullYear();
+    const todayIST = getTodayIST();
+    const queryMonth = month || todayIST.getUTCMonth() + 1;
+    const queryYear = year || todayIST.getUTCFullYear();
 
     const result = await attendanceService.getEmployeeStats(
       req.user.employeeId,

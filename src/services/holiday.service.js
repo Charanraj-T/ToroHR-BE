@@ -5,7 +5,7 @@ import {
   getHolidaysForYear,
   getUpcomingHolidays,
 } from "../utils/recurring-holiday.util.js";
-import { parseDateOnly, getYear } from "../utils/holiday.util.js";
+import { parseDateOnly, getYear } from "../utils/date.util.js";
 
 const throwError = (message, statusCode) => {
   const error = new Error(message);
@@ -90,7 +90,6 @@ export const createHoliday = async (data, user) => {
  * @param {Object} filters - Filter criteria
  * @param {number} page - Page number
  * @param {number} limit - Items per page
- * @param {Object} user - User object for authorization
  * @returns {Promise<Object>} Paginated holidays
  */
 export const getHolidaysWithFilters = async (
@@ -309,21 +308,6 @@ export const deleteHoliday = async (id, user) => {
 export const getCurrentYearHolidays = async () => {
   const currentYear = getYear();
   return getHolidaysForYear(currentYear);
-};
-
-/**
- * Get holidays for a specific year
- * @param {number} year - Calendar year
- * @returns {Promise<Array>} Holidays in that year
- */
-export const getHolidaysByYear = async (year) => {
-  const validYear = parseInt(year, 10);
-
-  if (isNaN(validYear) || validYear < 1900 || validYear > 2100) {
-    throwError("Invalid year provided", 400);
-  }
-
-  return getHolidaysForYear(validYear);
 };
 
 /**

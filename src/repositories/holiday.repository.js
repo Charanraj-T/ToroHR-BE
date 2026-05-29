@@ -128,13 +128,6 @@ export const deleteHoliday = async (id) => {
 };
 
 /**
- * Check if a holiday with the same name and date already exists
- * @param {string} name - Holiday name
- * @param {Date} date - Holiday date
- * @param {string} excludeId - ID to exclude from check (for updates)
- * @returns {Promise<boolean>} True if duplicate exists
- */
-/**
  * Find holidays that fall within a given date range
  * @param {Date} fromDate - Start of range
  * @param {Date} toDate - End of range

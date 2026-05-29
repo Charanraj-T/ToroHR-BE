@@ -1,5 +1,8 @@
 import Employee from "../models/employee.model.js";
 import LeaveBalance from "../models/leave-balance.model.js";
+import { getStartOfDay, getEndOfDay, parseDateOnly, isWeekend, getYear } from "./date.util.js";
+
+export { getStartOfDay, getEndOfDay, parseDateOnly, isWeekend, getYear };
 
 export const LEAVE_TYPES = ["CL", "SL", "PL", "LOP"];
 export const LEAVE_STATUSES = ["Pending", "Approved", "Rejected", "Cancelled"];
@@ -13,28 +16,6 @@ const DEFAULT_LEAVE_BALANCE = {
 };
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
-
-export const getStartOfDay = (date) => {
-  const parsed = new Date(date);
-  parsed.setUTCHours(0, 0, 0, 0);
-  return parsed;
-};
-
-export const getEndOfDay = (date) => {
-  const parsed = new Date(date);
-  parsed.setUTCHours(23, 59, 59, 999);
-  return parsed;
-};
-
-export const parseDateOnly = (date) => {
-  const parsed = new Date(`${date}T00:00:00.000Z`);
-  return getStartOfDay(parsed);
-};
-
-export const isWeekend = (date) => {
-  const day = date.getUTCDay();
-  return day === 0 || day === 6;
-};
 
 export const calculateLeaveDays = (fromDate, toDate, dayType = "Full-day") => {
   const start = getStartOfDay(fromDate);
@@ -85,9 +66,7 @@ export const getWorkingDatesBetween = (fromDate, toDate, excludeDates = []) => {
   return dates;
 };
 
-export const getLeaveYear = (date = new Date()) => {
-  return new Date(date).getUTCFullYear();
-};
+export const getLeaveYear = getYear;
 
 const buildDefaultLeaveBalance = (employeeId, year, lastResetAt = null) => ({
   employeeId,
@@ -104,12 +83,12 @@ export const getBalanceUpdateForReversal = (leaveType, leaveDays) => {
   return { $inc: { [leaveType]: leaveDays } };
 };
 
-export const resetYearlyLeaveBalances = async (year = new Date().getUTCFullYear()) => {
+const resetYearlyLeaveBalances = async (year = new Date().getUTCFullYear()) => {
   const employees = await Employee.find({ status: "Active" }).select("_id").lean();
   const resetAt = new Date();
 
   const operations = employees.map((employee) => {
-    const { LOP, ...resetData } = buildDefaultLeaveBalance(employee._id, year, resetAt);
+    const { LOP: _lop, ...resetData } = buildDefaultLeaveBalance(employee._id, year, resetAt);
     return {
     updateOne: {
       filter: { employeeId: employee._id, year },

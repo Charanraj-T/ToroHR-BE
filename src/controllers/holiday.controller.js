@@ -82,7 +82,6 @@ export const getHolidays = async (req, res, next) => {
       },
       value.page,
       value.limit,
-      req.user,
     );
 
     res.status(200).json({

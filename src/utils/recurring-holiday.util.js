@@ -4,7 +4,7 @@
  */
 
 import Holiday from "../models/holiday.model.js";
-import { getStartOfDay } from "./holiday.util.js";
+import { getStartOfDay } from "./date.util.js";
 
 let holidayCache = null;
 let holidayCacheExpiry = 0;

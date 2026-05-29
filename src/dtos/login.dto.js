@@ -1,6 +1,6 @@
 import Joi from "joi";
 
-export const loginSchema = Joi.object({
+const loginSchema = Joi.object({
   identifier: Joi.string().trim().required().messages({
     "string.empty": "Email or phone number is required",
     "any.required": "Email or phone number is required"

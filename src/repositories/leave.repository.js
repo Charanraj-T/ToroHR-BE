@@ -2,7 +2,7 @@ import Attendance from "../models/attendance.model.js";
 import Employee from "../models/employee.model.js";
 import Leave from "../models/leave.model.js";
 import LeaveBalance from "../models/leave-balance.model.js";
-import { getStartOfDayIST } from "../utils/attendance.util.js";
+import { getStartOfDayIST } from "../utils/date.util.js";
 import { ACTIVE_LEAVE_STATUSES, getEndOfDay, getStartOfDay } from "../utils/leave.util.js";
 
 const leavePopulateOptions = [

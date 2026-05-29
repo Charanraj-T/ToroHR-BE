@@ -4,12 +4,11 @@ import Employee from "../models/employee.model.js";
 import Leave from "../models/leave.model.js";
 import { findHolidaysInDateRange } from "../repositories/holiday.repository.js";
 import * as attendanceRepository from "../repositories/attendance.repository.js";
+import { getStartOfDayIST, getEndOfDayIST } from "../utils/date.util.js";
 import {
   calculateHoursWorked,
   isFutureDate,
   checkIfLate,
-  getStartOfDayIST,
-  getEndOfDayIST
 } from "../utils/attendance.util.js";
 import { normalizeAttendance, normalizeAttendanceList } from "../dtos/attendance.dto.js";
 
