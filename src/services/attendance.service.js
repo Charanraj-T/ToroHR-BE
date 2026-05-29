@@ -4,7 +4,7 @@ import Employee from "../models/employee.model.js";
 import Leave from "../models/leave.model.js";
 import { findHolidaysInDateRange } from "../repositories/holiday.repository.js";
 import * as attendanceRepository from "../repositories/attendance.repository.js";
-import { getStartOfDayIST, getEndOfDayIST } from "../utils/date.util.js";
+import { getStartOfDay, getEndOfDay, getStartOfDayIST, getEndOfDayIST } from "../utils/date.util.js";
 import {
   calculateHoursWorked,
   isFutureDate,
@@ -507,10 +507,8 @@ export const getTeamAttendance = async (managerId, filters) => {
 export const getAttendanceForExport = async (startDate, endDate, filters = {}) => {
   const employeeSummaries = await attendanceRepository.getAttendanceSummaryForDateRange(startDate, endDate, filters);
 
-  const start = new Date(startDate);
-  start.setUTCHours(0, 0, 0, 0);
-  const end = new Date(endDate);
-  end.setUTCHours(23, 59, 59, 999);
+  const start = getStartOfDay(startDate);
+  const end = getEndOfDay(endDate);
 
   const holidays = await findHolidaysInDateRange(start, end);
   const holidayDateSet = new Set(holidays.map(h => {

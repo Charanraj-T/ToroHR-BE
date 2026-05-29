@@ -9,6 +9,7 @@ import attendanceRoutes from "./routes/attendance.routes.js";
 import leaveRoutes from "./routes/leave.routes.js";
 import holidayRoutes from "./routes/holiday.routes.js";
 import settingsRoutes from "./routes/settings.routes.js";
+import claimRoutes from "./routes/claim.routes.js";
 import { startLeaveBalanceResetJob } from "./utils/leave.util.js";
 import { initializeHolidaysCache } from "./services/holiday.service.js";
 
@@ -18,7 +19,7 @@ const PORT = process.env.PORT || 5000;
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "15mb" }));
 
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -33,6 +34,7 @@ app.use("/api/attendance", attendanceRoutes);
 app.use("/api/leaves", leaveRoutes);
 app.use("/api/holidays", holidayRoutes);
 app.use("/api/settings", settingsRoutes);
+app.use("/api/claims", claimRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

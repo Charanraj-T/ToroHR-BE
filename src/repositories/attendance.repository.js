@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Attendance from "../models/attendance.model.js";
+import { getStartOfDay, getEndOfDay, getStartOfDayIST, getEndOfDayIST } from "../utils/date.util.js";
 
 const attendancePopulateOptions = [
   {
@@ -21,9 +22,8 @@ export const findAttendanceById = (id) => {
 };
 
 export const findAttendanceByEmployeeAndDate = (employeeId, date) => {
-  const [y, m, d] = date.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }).split("-").map(Number);
-  const startOfDay = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
-  const endOfDay = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
+  const startOfDay = getStartOfDayIST(date);
+  const endOfDay = getEndOfDayIST(date);
 
   return Attendance.findOne({
     employeeId,
@@ -37,14 +37,10 @@ export const findAttendanceByEmployeeAndDate = (employeeId, date) => {
 const buildDateFilter = (startDate, endDate) => {
   const dateFilter = {};
   if (startDate) {
-    const start = new Date(startDate);
-    start.setUTCHours(0, 0, 0, 0);
-    dateFilter.$gte = start;
+    dateFilter.$gte = getStartOfDay(startDate);
   }
   if (endDate) {
-    const end = new Date(endDate);
-    end.setUTCHours(23, 59, 59, 999);
-    dateFilter.$lte = end;
+    dateFilter.$lte = getEndOfDay(endDate);
   }
   return dateFilter;
 };
@@ -218,10 +214,8 @@ export const findTeamAttendance = async (managerId, filters = {}) => {
 };
 
 export const getAttendanceSummaryForToday = async (filters = {}) => {
-  const now = new Date();
-  const [y, m, d] = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }).split("-").map(Number);
-  const todayStart = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0));
-  const todayEnd = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
+  const todayStart = getStartOfDayIST(new Date());
+  const todayEnd = getEndOfDayIST(new Date());
 
   const { department, managerId, employeeId } = filters;
 
@@ -323,10 +317,8 @@ export const deleteAttendance = (id) => {
 export const getAttendanceSummaryForDateRange = async (startDate, endDate, filters = {}) => {
   const { employeeId, department, managerId } = filters;
 
-  const start = new Date(startDate);
-  start.setUTCHours(0, 0, 0, 0);
-  const end = new Date(endDate);
-  end.setUTCHours(23, 59, 59, 999);
+  const start = getStartOfDay(startDate);
+  const end = getEndOfDay(endDate);
 
   const match = {
     date: { $gte: start, $lte: end }
