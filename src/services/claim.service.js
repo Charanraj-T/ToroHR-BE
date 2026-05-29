@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import { normalizeClaim, normalizeClaimList, normalizeClaimSummary } from "../dtos/claim.dto.js";
 import * as claimRepository from "../repositories/claim.repository.js";
-import { getEndOfDay, getStartOfDay, parseDateOnly } from "../utils/date.util.js";
+import { getEndOfDay, parseDateOnly } from "../utils/date.util.js";
 import {
   CANCELLABLE_STATUSES,
   normalizeAttachments,
@@ -117,22 +117,6 @@ const ensureReimbursementAccess = (requestingUser, employee) => {
   throwError("You do not have permission to mark this claim as reimbursed", 403);
 };
 
-const ensureDeleteAccess = (requestingUser, claim) => {
-  if (claim.status !== "Pending") {
-    throwError("Only pending claims can be deleted", 400);
-  }
-
-  if (requestingUser.role === "Admin") {
-    return;
-  }
-
-  const employeeId = claim.employeeId._id?.toString() || claim.employeeId.toString();
-
-  if (employeeId !== requestingUser.employeeId) {
-    throwError("You can only delete your own pending claims", 403);
-  }
-};
-
 const buildVisibilityQuery = async (requestingUser) => {
   if (requestingUser.role === "Admin") {
     return {};
@@ -160,7 +144,7 @@ const applyFilters = (query, filters) => {
   }
 
   if (filters.dateFrom || filters.dateTo) {
-    const dateFrom = filters.dateFrom ? getStartOfDay(parseDateOnly(filters.dateFrom)) : null;
+    const dateFrom = filters.dateFrom ? parseDateOnly(filters.dateFrom) : null;
     const dateTo = filters.dateTo ? getEndOfDay(parseDateOnly(filters.dateTo)) : null;
 
     if (dateFrom && dateTo && dateFrom > dateTo) {
@@ -277,22 +261,6 @@ export const updateClaim = async (claimId, claimData, requestingUser) => {
   return normalizeClaim(updatedClaim);
 };
 
-export const deleteClaim = async (claimId, requestingUser) => {
-  validateObjectId(claimId, "Claim ID");
-
-  const claim = await claimRepository.findClaimById(claimId);
-
-  if (!claim) {
-    throwError("Claim not found", 404);
-  }
-
-  ensureDeleteAccess(requestingUser, claim);
-
-  await claimRepository.deleteClaimById(claimId);
-
-  return { id: claimId };
-};
-
 export const approveClaim = async (claimId, requestingUser) => {
   validateObjectId(claimId, "Claim ID");
 
@@ -403,6 +371,47 @@ export const reimburseClaim = async (claimId, requestingUser) => {
   });
 
   return normalizeClaim(updatedClaim);
+};
+
+const ensureDeleteAccess = (requestingUser, employee) => {
+  if (requestingUser.role === "Admin") {
+    return;
+  }
+
+  if (requestingUser.role === "Manager") {
+    const isOwnClaim = employee._id.toString() === requestingUser.employeeId;
+    const isTeamMember = employee.reportingManagerId?.toString() === requestingUser.employeeId;
+
+    if (isOwnClaim || isTeamMember) {
+      return;
+    }
+  }
+
+  if (requestingUser.role === "Employee" && employee._id.toString() === requestingUser.employeeId) {
+    return;
+  }
+
+  throwError("You do not have permission to delete this claim", 403);
+};
+
+export const deleteClaim = async (claimId, requestingUser) => {
+  validateObjectId(claimId, "Claim ID");
+
+  const claim = await claimRepository.findClaimById(claimId);
+
+  if (!claim) {
+    throwError("Claim not found", 404);
+  }
+
+  if (claim.status !== "Cancelled" && claim.status !== "Rejected") {
+    throwError(`Only cancelled or rejected claims can be deleted. Current status: "${claim.status}"`, 400);
+  }
+
+  ensureDeleteAccess(requestingUser, claim.employeeId);
+
+  await claimRepository.deleteClaimById(claimId);
+
+  return { id: claimId };
 };
 
 export const getClaimSummary = async (requestingUser) => {

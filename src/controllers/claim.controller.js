@@ -97,20 +97,6 @@ export const updateClaim = async (req, res, next) => {
   }
 };
 
-export const deleteClaim = async (req, res, next) => {
-  try {
-    const result = await claimService.deleteClaim(req.params.id, req.user);
-
-    res.status(200).json({
-      success: true,
-      message: "Claim deleted successfully",
-      data: result
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 export const approveClaim = async (req, res, next) => {
   try {
     const claim = await claimService.approveClaim(req.params.id, req.user);
@@ -147,6 +133,20 @@ export const cancelClaim = async (req, res, next) => {
       success: true,
       message: "Claim cancelled successfully",
       data: { claim }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteClaim = async (req, res, next) => {
+  try {
+    const result = await claimService.deleteClaim(req.params.id, req.user);
+
+    res.status(200).json({
+      success: true,
+      message: "Claim deleted successfully",
+      data: result
     });
   } catch (error) {
     next(error);

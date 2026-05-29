@@ -20,12 +20,6 @@ router.get("/:id", authorizeRoles("Employee", "Manager", "Admin"), claimControll
 
 router.put("/:id", authorizeRoles("Employee", "Manager"), claimController.updateClaim);
 
-router.delete(
-  "/:id",
-  authorizeRoles("Employee", "Manager", "Admin"),
-  claimController.deleteClaim
-);
-
 router.put("/:id/approve", authorizeRoles("Admin", "Manager"), claimController.approveClaim);
 
 router.put("/:id/reject", authorizeRoles("Admin", "Manager"), claimController.rejectClaim);
@@ -40,6 +34,12 @@ router.put(
   "/:id/reimburse",
   authorizeRoles("Admin", "Manager"),
   claimController.reimburseClaim
+);
+
+router.delete(
+  "/:id",
+  authorizeRoles("Employee", "Manager", "Admin"),
+  claimController.deleteClaim
 );
 
 export default router;

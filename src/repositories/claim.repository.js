@@ -56,10 +56,6 @@ export const findClaimById = (id, session = null) => {
   return Claim.findById(id).session(session).populate(claimPopulateOptions);
 };
 
-export const deleteClaimById = (id, session = null) => {
-  return Claim.findByIdAndDelete(id).session(session);
-};
-
 export const listClaims = async ({ query, page, limit }) => {
   const skip = (page - 1) * limit;
 
@@ -115,4 +111,8 @@ export const getTeamEmployeeIds = async (managerId) => {
 
 export const updateClaimStatus = (id, updateData, session = null) => {
   return updateClaimById(id, updateData, session);
+};
+
+export const deleteClaimById = (id, session = null) => {
+  return Claim.findByIdAndDelete(id).session(session);
 };
