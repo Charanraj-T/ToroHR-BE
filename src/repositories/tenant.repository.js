@@ -5,17 +5,8 @@ export const createTenant = async (data) => {
   return tenant;
 };
 
-export const findAllTenants = async ({ page, limit, search }) => {
+export const findAllTenants = async ({ page, limit }) => {
   const query = {};
-
-  if (search && search.trim()) {
-    const searchRegex = new RegExp(search.trim(), "i");
-    query.$or = [
-      { companyName: searchRegex },
-      { companyEmail: searchRegex },
-      { companyPhone: searchRegex },
-    ];
-  }
 
   const skip = (page - 1) * limit;
 
@@ -48,4 +39,13 @@ export const updateTenantById = async (id, data) => {
 export const countTenantAdmins = async (tenantId) => {
   const User = (await import("../models/user.model.js")).default;
   return User.countDocuments({ tenantId, role: "Admin" });
+};
+
+export const countAdminsForTenants = async (tenantIds) => {
+  const User = (await import("../models/user.model.js")).default;
+  const results = await User.aggregate([
+    { $match: { tenantId: { $in: tenantIds }, role: "Admin" } },
+    { $group: { _id: "$tenantId", count: { $sum: 1 } } },
+  ]);
+  return results;
 };

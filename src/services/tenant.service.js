@@ -1,9 +1,10 @@
 import mongoose from "mongoose";
+import bcrypt from "bcryptjs";
 import User from "../models/user.model.js";
 import * as tenantRepository from "../repositories/tenant.repository.js";
 import * as settingsRepository from "../repositories/settings.repository.js";
 import * as payrollSettingsRepository from "../repositories/payroll-settings.repository.js";
-import { normalizeTenant, normalizeTenantList } from "../dtos/tenant.dto.js";
+import { normalizeTenant } from "../dtos/tenant.dto.js";
 
 const throwError = (message, statusCode) => {
   const error = new Error(message);
@@ -37,22 +38,26 @@ export const createTenant = async (data) => {
   return normalizeTenant(tenant);
 };
 
-export const listTenants = async ({ page = 1, limit = 20, search } = {}) => {
+export const listTenants = async ({ page = 1, limit = 20 } = {}) => {
   const validPage = Math.max(parseInt(page, 10) || 1, 1);
   const validLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
 
   const result = await tenantRepository.findAllTenants({
     page: validPage,
     limit: validLimit,
-    search,
   });
 
-  const data = await Promise.all(
-    result.data.map(async (tenant) => {
-      const adminCount = await tenantRepository.countTenantAdmins(tenant._id);
-      return { ...normalizeTenant(tenant), adminCount };
-    })
-  );
+  const data = result.data.map((tenant) => ({ ...normalizeTenant(tenant), adminCount: 0 }));
+  const tenantIds = result.data.map((t) => t._id);
+  if (tenantIds.length > 0) {
+    const adminCounts = await tenantRepository.countAdminsForTenants(tenantIds);
+    const countMap = Object.fromEntries(
+      adminCounts.map((a) => [a._id.toString(), a.count])
+    );
+    for (const item of data) {
+      item.adminCount = countMap[item.id] || 0;
+    }
+  }
 
   return {
     data,
@@ -122,6 +127,10 @@ export const createTenantAdmin = async (tenantId, data) => {
     throwError("Tenant not found", 404);
   }
 
+  if (tenant.status !== "Active") {
+    throwError("Cannot add admin to an inactive tenant", 400);
+  }
+
   const existingUser = await User.findOne({ email: data.email.toLowerCase() });
   if (existingUser) {
     throwError("A user with this email already exists", 409);
@@ -157,6 +166,10 @@ export const updateTenantAdmin = async (tenantId, adminId, data) => {
   const updateData = {};
   if (data.name !== undefined) updateData.name = data.name;
   if (data.isActive !== undefined) updateData.isActive = data.isActive;
+  if (data.password !== undefined) {
+    const salt = await bcrypt.genSalt(10);
+    updateData.password = await bcrypt.hash(data.password, salt);
+  }
 
   const updated = await User.findByIdAndUpdate(adminId, { $set: updateData }, { new: true })
     .select("name email isActive createdAt")
@@ -169,11 +182,4 @@ export const updateTenantAdmin = async (tenantId, adminId, data) => {
     isActive: updated.isActive,
     createdAt: updated.createdAt,
   };
-};
-
-export const getTenantsForSuperAdmin = async (user) => {
-  if (user.role !== "SuperAdmin") {
-    throwError("Only SuperAdmin can access tenants", 403);
-  }
-  return listTenants();
 };

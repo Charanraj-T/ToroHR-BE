@@ -61,6 +61,10 @@ export const updateTenantAdminSchema = Joi.object({
     "string.empty": "Name cannot be empty",
   }),
   isActive: Joi.boolean(),
+  password: Joi.string().min(6).max(128).messages({
+    "string.min": "Password must be at least 6 characters",
+    "string.max": "Password must not exceed 128 characters",
+  }),
 }).min(1).messages({
   "object.min": "At least one field must be provided for update",
 });

@@ -88,7 +88,8 @@ const resetYearlyLeaveBalances = async (year = new Date().getUTCFullYear()) => {
   const resetAt = new Date();
 
   const operations = employees.map((employee) => {
-    const { LOP: _lop, ...resetData } = buildDefaultLeaveBalance(employee._id, year, resetAt);
+    const allFields = buildDefaultLeaveBalance(employee._id, year, resetAt);
+    const { LOP, ...resetData } = allFields;
     return {
     updateOne: {
       filter: { employeeId: employee._id, year },

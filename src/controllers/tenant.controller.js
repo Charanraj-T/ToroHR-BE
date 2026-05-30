@@ -43,8 +43,8 @@ export const createTenant = async (req, res, next) => {
 
 export const getTenants = async (req, res, next) => {
   try {
-    const { page, limit, search } = req.query;
-    const result = await tenantService.listTenants({ page, limit, search });
+    const { page, limit } = req.query;
+    const result = await tenantService.listTenants({ page, limit });
 
     res.status(200).json({
       success: true,

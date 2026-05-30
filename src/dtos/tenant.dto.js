@@ -11,8 +11,3 @@ export const normalizeTenant = (tenant) => {
     updatedAt: tenant.updatedAt,
   };
 };
-
-export const normalizeTenantList = (tenants) => {
-  if (!tenants || !Array.isArray(tenants)) return [];
-  return tenants.map(normalizeTenant);
-};

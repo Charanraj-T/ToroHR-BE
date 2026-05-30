@@ -1,5 +1,6 @@
 import { validateLoginDto } from "../dtos/login.dto.js";
 import User from "../models/user.model.js";
+import Tenant from "../models/tenant.model.js";
 import * as employeeRepository from "../repositories/employee.repository.js";
 import { generateToken } from "../utils/jwt.js";
 
@@ -55,7 +56,7 @@ export const login = async (loginData) => {
   }
 
   if (user.role !== "SuperAdmin") {
-    const tenant = await (await import("../models/tenant.model.js")).default.findById(user.tenantId).lean();
+    const tenant = await Tenant.findById(user.tenantId).select("status").lean();
     if (!tenant || tenant.status !== "Active") {
       const error = new Error("Your company account is inactive. Contact your administrator.");
       error.statusCode = 403;
@@ -73,7 +74,7 @@ export const login = async (loginData) => {
 };
 
 export const getCurrentUser = async (userId) => {
-  const user = await User.findById(userId);
+  const user = await User.findById(userId).lean();
 
   if (!user || !user.isActive) {
     const error = new Error("User not found or inactive");

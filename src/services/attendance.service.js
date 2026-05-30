@@ -241,8 +241,8 @@ export const markAttendanceManual = async (
       throw error;
     }
 
-    const startOfDay = getStartOfDayIST(parsedDate);
-    const endOfDay = getEndOfDayIST(parsedDate);
+    const startOfDay = getStartOfDayIST(date);
+    const endOfDay = getEndOfDayIST(date);
 
     let attendance = await Attendance.findOne(
       {

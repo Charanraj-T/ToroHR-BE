@@ -37,19 +37,19 @@ export const createEmployee = (employeeData, session) => {
 };
 
 export const findEmployeeById = (id) => {
-  return Employee.findById(id).populate(employeePopulateOptions);
+  return Employee.findById(id).populate(employeePopulateOptions).lean();
 };
 
 export const findEmployeeByUserId = (userId) => {
-  return Employee.findOne({ userId }).populate(employeePopulateOptions);
+  return Employee.findOne({ userId }).populate(employeePopulateOptions).lean();
 };
 
 export const findEmployeeByEmail = (email) => {
-  return Employee.findOne({ email: email.toLowerCase() });
+  return Employee.findOne({ email: email.toLowerCase() }).lean();
 };
 
 export const findEmployeeByPhone = (phoneNumber) => {
-  return Employee.findOne({ phoneNumber });
+  return Employee.findOne({ phoneNumber }).lean();
 };
 
 export const countActiveEmployeesByManager = (managerId) => {
@@ -78,6 +78,7 @@ export const listEmployees = async ({ query, page, limit }) => {
       .skip(skip)
       .limit(limit)
       .populate(employeePopulateOptions)
+      .lean()
   ]);
 
   return {

@@ -312,19 +312,6 @@ export const getCurrentYearHolidays = async (tenantId) => {
  * @returns {Promise<Array>} Upcoming holidays
  */
 export const getUpcomingHolidaysList = async (days = 365, tenantId = null) => {
-  const validDays = Math.min(Math.max(parseInt(days, 10) || 365, 1), 3650);
+  const validDays = Math.max(1, Math.min(days, 365));
   return getUpcomingHolidays(validDays, tenantId);
-};
-
-/**
- * Initialize holidays cache (call on app startup)
- * @returns {Promise<void>}
- */
-export const initializeHolidaysCache = async () => {
-  try {
-    await loadHolidaysCache();
-    console.log("Holidays cache initialized successfully");
-  } catch (error) {
-    console.error("Error initializing holidays cache:", error);
-  }
 };
