@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import Attendance from "../models/attendance.model.js";
 import Leave from "../models/leave.model.js";
 import Payroll from "../models/payroll.model.js";
@@ -13,16 +12,11 @@ const payrollPopulateOptions = [
 ];
 
 export const findPayrollById = (id, session = null) => {
-  return Payroll.findById(id).session(session).populate(payrollPopulateOptions);
+  return Payroll.findById(id, { pdfData: 0 }).session(session).populate(payrollPopulateOptions);
 };
 
 export const findPayrollByEmployeeMonth = (employeeId, month, year, session = null) => {
-  return Payroll.findOne({ employeeId, month, year }).session(session);
-};
-
-export const createPayroll = async (data, session = null) => {
-  const [payroll] = await Payroll.create([data], { session });
-  return findPayrollById(payroll._id, session);
+  return Payroll.findOne({ employeeId, month, year }, { status: 1 }).session(session);
 };
 
 export const updatePayrollById = (id, updateData, session = null) => {
@@ -124,6 +118,8 @@ export const findActiveEmployees = () => {
     .lean();
 };
 
-export const findPayrollPdfById = (id) => {
-  return Payroll.findById(id).select("pdfData payrollNumber employeeName status paidAt month year");
+export const findPayrollsByEmployeeMonth = (employeeIds, month, year) => {
+  return Payroll.find({ employeeId: { $in: employeeIds }, month, year })
+    .select("employeeId status")
+    .lean();
 };

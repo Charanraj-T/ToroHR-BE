@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import Payroll from "../models/payroll.model.js";
 import {
   normalizePayroll,
   normalizePayrollList,
@@ -186,11 +187,23 @@ export const generatePayrollForMonth = async (month, year, requestingUser = null
     return acc;
   }, {});
 
+  const existingPayrolls = await payrollRepository.findPayrollsByEmployeeMonth(employeeIds, month, year);
+  const existingByEmployeeId = existingPayrolls.reduce((acc, p) => {
+    acc[p.employeeId.toString()] = p.status;
+    return acc;
+  }, {});
+
   let generatedCount = 0;
   let skippedCount = 0;
   const warnings = [];
 
   for (const employee of employees) {
+    const existingStatus = existingByEmployeeId[employee._id.toString()];
+    if (existingStatus === "Paid") {
+      skippedCount += 1;
+      continue;
+    }
+
     const employeeStructures = structuresByEmployee[employee._id.toString()] || [];
     const salaryStructure = resolveSalaryStructure(employeeStructures, month, year);
 
@@ -201,12 +214,6 @@ export const generatePayrollForMonth = async (month, year, requestingUser = null
 
     const period = getEligiblePeriod(employee, month, year);
     if (!period) {
-      skippedCount += 1;
-      continue;
-    }
-
-    const existing = await payrollRepository.findPayrollByEmployeeMonth(employee._id, month, year);
-    if (existing?.status === "Paid") {
       skippedCount += 1;
       continue;
     }
@@ -417,17 +424,19 @@ export const getPayrollPdf = async (payrollId, requestingUser) => {
 
   await ensurePayrollViewAccess(requestingUser, payroll);
 
-  if (!payroll.pdfData) {
+  const pdfRecord = await Payroll.findById(payrollId).select("pdfData payrollNumber employeeName month year status").lean();
+
+  if (!pdfRecord?.pdfData) {
     throwError("Payslip PDF is not available", 404);
   }
 
   return {
-    payrollNumber: payroll.payrollNumber,
-    employeeName: payroll.employeeName,
-    month: payroll.month,
-    year: payroll.year,
-    status: payroll.status,
-    pdfBuffer: payroll.pdfData
+    payrollNumber: pdfRecord.payrollNumber,
+    employeeName: pdfRecord.employeeName,
+    month: pdfRecord.month,
+    year: pdfRecord.year,
+    status: pdfRecord.status,
+    pdfBuffer: pdfRecord.pdfData
   };
 };
 
