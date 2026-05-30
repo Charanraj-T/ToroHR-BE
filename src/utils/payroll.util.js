@@ -1,3 +1,5 @@
+import https from "https";
+import http from "http";
 import PDFDocument from "pdfkit";
 import { getEndOfDay, getStartOfDay, isWeekend, parseDateOnly } from "./date.util.js";
 
@@ -192,12 +194,12 @@ export const calculateFullTimePay = (salaryStructure, attendanceSnapshot, defaul
 
 export const calculateContractPay = (salaryStructure, attendanceSnapshot) => {
   const dailyAmount = salaryStructure.dailyAmount || 0;
-  const payableDays = attendanceSnapshot.workingDays;
-  const totalPay = roundRupee(payableDays * dailyAmount);
+  const presentDays = attendanceSnapshot.presentDays;
+  const totalPay = roundRupee(presentDays * dailyAmount);
 
   return {
     dailyAmount,
-    payableDays,
+    payableDays: presentDays,
     totalPay
   };
 };
@@ -225,7 +227,51 @@ export const resolveSalaryStructure = (structures, month, year) => {
   return previous[0] || null;
 };
 
-export const generatePayslipPdf = (payroll) =>
+const isValidImage = (buf) => {
+  if (!buf || buf.length < 8) return false;
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return true;
+  if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return true;
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) return true;
+  return false;
+};
+
+export const fetchImageBuffer = async (url) => {
+  if (!url) return null;
+
+  if (url.startsWith("data:")) {
+    const matches = url.match(/^data:image\/(png|jpe?g|gif|webp);base64,(.+)$/);
+    if (!matches) return null;
+    const buf = Buffer.from(matches[2], "base64");
+    return isValidImage(buf) ? buf : null;
+  }
+
+  try {
+    const mod = url.startsWith("https") ? https : http;
+    return new Promise((resolve) => {
+      const req = mod.get(url, { timeout: 5000 }, (res) => {
+        if (res.statusCode !== 200) { resolve(null); return; }
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const buf = Buffer.concat(chunks);
+          resolve(isValidImage(buf) ? buf : null);
+        });
+        res.on("error", () => resolve(null));
+      });
+      req.on("error", () => resolve(null));
+      req.on("timeout", () => { req.destroy(); resolve(null); });
+    });
+  } catch {
+    return null;
+  }
+};
+
+const formatINR = (amount) =>
+  "Rs. " + new Intl.NumberFormat("en-IN", {
+    maximumFractionDigits: 0, minimumFractionDigits: 0
+  }).format(amount || 0);
+
+export const generatePayslipPdf = (payroll, logoSrc = null) =>
   new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ margin: 50, size: "A4" });
@@ -238,58 +284,181 @@ export const generatePayslipPdf = (payroll) =>
       const company = payroll.companySnapshot || {};
       const attendance = payroll.attendanceSnapshot || {};
       const salary = payroll.salarySnapshot || {};
+      const ML = doc.page.margins.left;
+      const MR = doc.page.margins.right;
+      const W = doc.page.width - ML - MR;
 
-      doc.fontSize(18).text(company.companyName || "ToroHR", { align: "center" });
-      if (company.address) {
-        doc.fontSize(9).fillColor("#555555").text(company.address, { align: "center" });
+      const hr = (yy) => {
+        doc.moveTo(ML, yy).lineTo(ML + W, yy).strokeColor("#cccccc").stroke();
+      };
+
+      const row = (label, value, yy, opts = {}) => {
+        const { labelW = 140, bold = false, valSize = 9, lblSize = 9, labelColor = "#666666", valueColor = "#222222" } = opts;
+        const lf = bold ? "Helvetica-Bold" : "Helvetica";
+        const vf = bold ? "Helvetica-Bold" : "Helvetica";
+        const vx = ML + labelW + 12;
+        const vw = W - labelW - 12;
+        doc.fontSize(lblSize).fillColor(labelColor).font(lf)
+          .text(label, ML, yy, { width: labelW });
+        doc.fontSize(valSize).fillColor(valueColor).font(vf)
+          .text(value, vx, yy, { width: vw, align: "right" });
+        return yy + 16;
+      };
+
+      let y = ML;
+
+      // ═══════════════════  HEADER  ═══════════════════
+
+      const hasLogo = logoSrc && Buffer.isBuffer(logoSrc) && logoSrc.length > 0;
+      if (hasLogo) {
+        try { doc.image(logoSrc, ML, y, { width: 50 }); } catch { /* skip */ }
       }
-      doc.moveDown();
-      doc.fillColor("#000000").fontSize(14).text("Payslip", { align: "center" });
-      doc.fontSize(10).text(`Payroll #: ${payroll.payrollNumber}`, { align: "center" });
-      doc.text(`Period: ${String(payroll.month).padStart(2, "0")}/${payroll.year}`, {
-        align: "center"
+      const hx = hasLogo ? ML + 62 : ML;
+      const hw = hasLogo ? W - 62 : W;
+
+      doc.fontSize(18).fillColor("#1a1a1a").font("Helvetica-Bold")
+        .text(company.companyName || "ToroHR", hx, y + 2, { width: hw, align: hasLogo ? "left" : "center" });
+      y += 26;
+
+      if (company.address) {
+        const lines = company.address.split("\n").filter(Boolean);
+        for (let i = 0; i < Math.min(lines.length, 3); i++) {
+          doc.fontSize(8).fillColor("#777777").font("Helvetica")
+            .text(lines[i], hx, y, { width: hw, align: hasLogo ? "left" : "center" });
+          y += 11;
+        }
+      }
+
+      y += 8;
+      hr(y);
+      y += 12;
+
+      doc.fontSize(14).fillColor("#1a1a1a").font("Helvetica-Bold")
+        .text("PAYSLIP", ML, y, { align: "center", width: W });
+      y += 18;
+
+      doc.fontSize(9).fillColor("#555555").font("Helvetica")
+        .text(`Payroll #: ${payroll.payrollNumber}  |  Period: ${String(payroll.month).padStart(2, "0")}/${payroll.year}`,
+          ML, y, { align: "center", width: W });
+      y += 22;
+
+      // ═══════════════════  EMPLOYEE DETAILS  ═══════════════════
+
+      doc.fontSize(11).fillColor("#1a1a1a").font("Helvetica-Bold")
+        .text("Employee Details", ML, y);
+      y += 16;
+      hr(y);
+      y += 8;
+
+      y = row("Employee Name", payroll.employeeName, y, { labelW: 130 });
+      y = row("Employee ID", payroll.employeeCode, y, { labelW: 130 });
+      y = row("Designation", payroll.designation || "-", y, { labelW: 130 });
+      y = row("Employment Type", payroll.employmentType, y, { labelW: 130 });
+      y += 4;
+
+      // ═══════════════════  ATTENDANCE  ═══════════════════
+
+      doc.fontSize(11).fillColor("#1a1a1a").font("Helvetica-Bold")
+        .text("Attendance", ML, y);
+      y += 16;
+      hr(y);
+      y += 8;
+
+      const attrs = [
+        { l: "Working Days", v: String(attendance.workingDays ?? 0) },
+        { l: "Present Days", v: String(attendance.presentDays ?? 0) },
+        { l: "Leave Days", v: String(attendance.leaveDays ?? 0) },
+        { l: "Holiday Days", v: String(attendance.holidayDays ?? 0) },
+        { l: "LOP Days", v: String(attendance.lopDays ?? 0) },
+      ];
+      const colW = W / attrs.length;
+      attrs.forEach((a, i) => {
+        const cx = ML + i * colW;
+        doc.fontSize(8).fillColor("#666666").font("Helvetica")
+          .text(a.l, cx, y, { width: colW, align: "center" });
+        doc.fontSize(10).fillColor("#222222").font("Helvetica-Bold")
+          .text(a.v, cx, y + 12, { width: colW, align: "center" });
       });
-      doc.moveDown();
+      y += 28;
 
-      doc.fontSize(11).text(`Employee: ${payroll.employeeName}`);
-      doc.text(`Employee ID: ${payroll.employeeCode}`);
-      doc.text(`Designation: ${payroll.designation || "-"}`);
-      doc.text(`Employment Type: ${payroll.employmentType}`);
-      doc.moveDown();
+      // ═══════════════════  SALARY DETAILS  ═══════════════════
 
-      doc.fontSize(12).text("Attendance Summary", { underline: true });
-      doc.fontSize(10);
-      doc.text(`Working Days: ${attendance.workingDays ?? 0}`);
-      doc.text(`Present Days: ${attendance.presentDays ?? 0}`);
-      doc.text(`Leave Days: ${attendance.leaveDays ?? 0}`);
-      doc.text(`Holiday Days: ${attendance.holidayDays ?? 0}`);
-      doc.text(`LOP Days: ${attendance.lopDays ?? 0}`);
-      doc.moveDown();
-
-      doc.fontSize(12).text("Salary Details", { underline: true });
-      doc.fontSize(10);
+      doc.fontSize(11).fillColor("#1a1a1a").font("Helvetica-Bold")
+        .text("Salary Details", ML, y);
+      y += 16;
 
       if (payroll.employmentType === "Contract") {
-        doc.text(`Daily Amount: INR ${salary.dailyAmount ?? 0}`);
-        doc.text(`Payable Days: ${salary.payableDays ?? 0}`);
-        doc.text(`Total Pay: INR ${salary.totalPay ?? 0}`);
+        hr(y);
+        y += 8;
+        y = row("Daily Amount", formatINR(salary.dailyAmount ?? 0), y);
+        y = row("Present Days", String(salary.payableDays ?? 0), y);
+        hr(y - 4);
+        y += 4;
+
+        // Total Pay highlighted
+        doc.rect(ML, y, W, 28).fillColor("#f4f4f4").fill();
+        doc.rect(ML, y, W, 28).strokeColor("#cccccc").stroke();
+        doc.fontSize(11).fillColor("#1a1a1a").font("Helvetica-Bold")
+          .text("Total Pay", ML + 10, y + 7, { width: 120 });
+        doc.fontSize(13).fillColor("#1a1a1a").font("Helvetica-Bold")
+          .text(formatINR(salary.totalPay ?? 0), ML + 130, y + 7, {
+            width: W - 140, align: "right" });
+        y += 34;
       } else {
-        doc.text(`Basic: INR ${salary.basic ?? 0}`);
-        doc.text(`HRA: INR ${salary.houseRentAllowance ?? 0}`);
-        doc.text(`Special Allowance: INR ${salary.specialAllowance ?? 0}`);
-        doc.text(`Gross: INR ${salary.gross ?? 0}`);
-        doc.text(`PF Deduction: INR ${salary.pf ?? 0}`);
-        doc.text(`LOP Deduction: INR ${salary.lopDeduction ?? 0}`);
-        doc.fontSize(12).text(`Net Pay: INR ${salary.netPay ?? 0}`, { underline: true });
+        hr(y);
+        y += 8;
+
+        const items = [
+          { l: "Basic", v: salary.basic ?? 0 },
+          { l: "House Rent Allowance", v: salary.houseRentAllowance ?? 0 },
+          { l: "Special Allowance", v: salary.specialAllowance ?? 0 },
+          { l: "PF", v: salary.pf ?? 0 },
+          { l: "LOP Deduction", v: salary.lopDeduction ?? 0 },
+        ];
+
+        const vlw = 100;
+        for (const item of items) {
+          doc.fontSize(9).fillColor("#666666").font("Helvetica")
+            .text(item.l, ML + 8, y + 4, { width: vlw });
+          doc.fontSize(9).fillColor("#222222").font("Helvetica")
+            .text(formatINR(item.v), ML + vlw + 16, y + 4, {
+              width: W - vlw - 24, align: "right" });
+          hr(y + 18);
+          y += 18;
+        }
+
+        doc.fontSize(9).fillColor("#222222").font("Helvetica-Bold")
+          .text("Gross", ML + 8, y + 4, { width: vlw });
+        doc.fontSize(9).fillColor("#222222").font("Helvetica-Bold")
+          .text(formatINR(salary.gross ?? 0), ML + vlw + 16, y + 4, {
+            width: W - vlw - 24, align: "right" });
+        y += 20;
+
+        // Net Pay highlighted
+        doc.rect(ML, y, W, 28).fillColor("#f4f4f4").fill();
+        doc.rect(ML, y, W, 28).strokeColor("#cccccc").stroke();
+        doc.fontSize(11).fillColor("#1a1a1a").font("Helvetica-Bold")
+          .text("Net Pay", ML + 10, y + 7, { width: 120 });
+        doc.fontSize(13).fillColor("#1a1a1a").font("Helvetica-Bold")
+          .text(formatINR(salary.netPay ?? 0), ML + 130, y + 7, {
+            width: W - 140, align: "right" });
+        y += 34;
       }
 
-      doc.moveDown(2);
-      doc.fontSize(9).fillColor("#666666");
-      doc.text(`Status: ${payroll.status}`);
+      // ═══════════════════  FOOTER  ═══════════════════
+
+      hr(y);
+      y += 8;
+
       if (payroll.paidAt) {
-        doc.text(`Paid Date: ${new Date(payroll.paidAt).toLocaleDateString("en-IN")}`);
+        doc.fontSize(8).fillColor("#888888").font("Helvetica")
+          .text(`Paid on: ${new Date(payroll.paidAt).toLocaleDateString("en-IN")}`,
+            ML, y, { width: W / 3 });
       }
-      doc.text("This is a system-generated payslip.", { align: "center" });
+      y += 14;
+
+      doc.fontSize(7.5).fillColor("#aaaaaa").font("Helvetica")
+        .text("This is a system-generated payslip.", ML, y, { align: "center", width: W });
 
       doc.end();
     } catch (error) {

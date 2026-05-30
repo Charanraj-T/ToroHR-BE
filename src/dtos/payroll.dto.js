@@ -24,10 +24,10 @@ const normalizeEmployeeBrief = (employee) => {
   };
 };
 
-export const normalizePayroll = (payroll, { includePdf = false } = {}) => {
+export const normalizePayroll = (payroll) => {
   if (!payroll) return null;
 
-  const normalized = {
+  return {
     id: payroll._id,
     payrollNumber: payroll.payrollNumber,
     employee: payroll.employeeId?._id
@@ -45,16 +45,9 @@ export const normalizePayroll = (payroll, { includePdf = false } = {}) => {
     status: payroll.status,
     processedAt: payroll.processedAt,
     paidAt: payroll.paidAt,
-    hasPdf: Boolean(payroll.pdfData),
     createdAt: payroll.createdAt,
     updatedAt: payroll.updatedAt
   };
-
-  if (includePdf && payroll.pdfData) {
-    normalized.pdfData = payroll.pdfData.toString("base64");
-  }
-
-  return normalized;
 };
 
 export const normalizePayrollList = (records) => records.map((record) => normalizePayroll(record));

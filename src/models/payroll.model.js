@@ -111,10 +111,6 @@ const payrollSchema = new mongoose.Schema(
       type: Date,
       default: null
     },
-    pdfData: {
-      type: Buffer,
-      default: null
-    },
     generatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

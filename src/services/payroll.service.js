@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import Payroll from "../models/payroll.model.js";
 import {
   normalizePayroll,
   normalizePayrollList,
@@ -16,6 +15,7 @@ import {
   calculateContractPay,
   calculateFullTimePay,
   computeAttendanceSnapshot,
+  fetchImageBuffer,
   generatePayrollNumber,
   generatePayslipPdf,
   getEligiblePeriod,
@@ -165,9 +165,6 @@ const buildPayrollRecord = async ({
     paidAt: null,
     generatedBy
   };
-
-  const pdfBuffer = await generatePayslipPdf(payrollData);
-  payrollData.pdfData = pdfBuffer;
 
   return payrollData;
 };
@@ -424,19 +421,19 @@ export const getPayrollPdf = async (payrollId, requestingUser) => {
 
   await ensurePayrollViewAccess(requestingUser, payroll);
 
-  const pdfRecord = await Payroll.findById(payrollId).select("pdfData payrollNumber employeeName month year status").lean();
-
-  if (!pdfRecord?.pdfData) {
-    throwError("Payslip PDF is not available", 404);
-  }
+  const companySettings = await getCompanySettings();
+  const logoSrc = companySettings.companyLogo
+    ? await fetchImageBuffer(companySettings.companyLogo)
+    : null;
+  const pdfBuffer = await generatePayslipPdf(payroll, logoSrc);
 
   return {
-    payrollNumber: pdfRecord.payrollNumber,
-    employeeName: pdfRecord.employeeName,
-    month: pdfRecord.month,
-    year: pdfRecord.year,
-    status: pdfRecord.status,
-    pdfBuffer: pdfRecord.pdfData
+    payrollNumber: payroll.payrollNumber,
+    employeeName: payroll.employeeName,
+    month: payroll.month,
+    year: payroll.year,
+    status: payroll.status,
+    pdfBuffer
   };
 };
 

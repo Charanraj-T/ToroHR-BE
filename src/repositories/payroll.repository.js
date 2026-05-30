@@ -12,7 +12,7 @@ const payrollPopulateOptions = [
 ];
 
 export const findPayrollById = (id, session = null) => {
-  return Payroll.findById(id, { pdfData: 0 }).session(session).populate(payrollPopulateOptions);
+  return Payroll.findById(id).session(session).populate(payrollPopulateOptions);
 };
 
 export const findPayrollByEmployeeMonth = (employeeId, month, year, session = null) => {
@@ -42,7 +42,7 @@ export const listPayrolls = async ({ query, page, limit }) => {
 
   const [totalCount, data] = await Promise.all([
     Payroll.countDocuments(query),
-    Payroll.find(query, { pdfData: 0 })
+    Payroll.find(query)
       .sort({ year: -1, month: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit)
