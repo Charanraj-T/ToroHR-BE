@@ -12,7 +12,8 @@ export const getCompanySettings = async (requestingUser) => {
     throwError("You do not have permission to view company settings", 403);
   }
 
-  const settings = await settingsRepository.getCompanySettings();
+  const tenantId = requestingUser.tenantId;
+  const settings = await settingsRepository.getCompanySettings(tenantId);
   return normalizeCompanySettings(settings);
 };
 
@@ -21,6 +22,9 @@ export const updateCompanySettings = async (data, requestingUser) => {
     throwError("Only admins can update company settings", 403);
   }
 
-  const settings = await settingsRepository.updateCompanySettings(data);
+  const settings = await settingsRepository.updateCompanySettings({
+    ...data,
+    tenantId: requestingUser.tenantId,
+  });
   return normalizeCompanySettings(settings);
 };

@@ -10,7 +10,8 @@ export const generateToken = (user, employeeId = null) => {
       userId: user._id,
       employeeId,
       role: user.role,
-      email: user.email
+      email: user.email,
+      tenantId: user.tenantId ? user.tenantId.toString() : null
     },
     process.env.JWT_SECRET,
     {

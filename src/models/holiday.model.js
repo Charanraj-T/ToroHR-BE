@@ -2,6 +2,11 @@ import mongoose from "mongoose";
 
 const holidaySchema = new mongoose.Schema(
   {
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      required: true,
+    },
     name: {
       type: String,
       required: [true, "Holiday name is required"],
@@ -44,11 +49,9 @@ const holidaySchema = new mongoose.Schema(
   },
 );
 
-// Compound index for checking duplicate holidays (ignoring year for recurring holidays)
-holidaySchema.index({ date: 1, name: 1 }, { unique: true });
+holidaySchema.index({ tenantId: 1, date: 1, name: 1 }, { unique: true });
 
-// Index for finding holidays by month/day for recurring holidays
-holidaySchema.index({ date: 1, isRecurringYearly: 1 });
+holidaySchema.index({ tenantId: 1, date: 1, isRecurringYearly: 1 });
 
 const Holiday = mongoose.model("Holiday", holidaySchema);
 export default Holiday;

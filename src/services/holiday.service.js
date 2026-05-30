@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import * as holidayRepository from "../repositories/holiday.repository.js";
 import {
-  loadHolidaysCache,
   getHolidaysForYear,
   getUpcomingHolidays,
 } from "../utils/recurring-holiday.util.js";
@@ -26,12 +25,10 @@ const validateObjectId = (id, label = "ID") => {
  * @returns {Promise<Object>} Created holiday
  */
 export const createHoliday = async (data, user) => {
-  // Validate user is admin
   if (user.role !== "Admin") {
     throwError("Only Admins can create holidays", 403);
   }
 
-  // Parse and validate date
   const holidayDate = parseDateOnly(data.date);
   if (!holidayDate || isNaN(holidayDate)) {
     throwError("Invalid date provided", 400);
@@ -45,10 +42,12 @@ export const createHoliday = async (data, user) => {
     throwError("February 29 cannot be set as a recurring yearly holiday", 400);
   }
 
-  // Check for duplicate holidays
+  const tenantId = user.tenantId;
+
   const isDuplicate = await holidayRepository.checkDuplicateHoliday(
     data.name,
     holidayDate,
+    tenantId,
   );
 
   if (isDuplicate) {
@@ -59,6 +58,7 @@ export const createHoliday = async (data, user) => {
     await holidayRepository.checkDuplicateHolidayCrossYear(
       data.name,
       holidayDate,
+      tenantId,
     );
 
   if (hasCrossYearConflict) {
@@ -68,9 +68,9 @@ export const createHoliday = async (data, user) => {
     );
   }
 
-  // Create holiday
   const holiday = await holidayRepository.createHoliday(
     {
+      tenantId,
       name: data.name,
       date: holidayDate,
       description: data.description || "",
@@ -78,9 +78,6 @@ export const createHoliday = async (data, user) => {
     },
     user.userId,
   );
-
-  // Reload cache to reflect changes
-  await loadHolidaysCache();
 
   return holiday;
 };
@@ -96,18 +93,16 @@ export const getHolidaysWithFilters = async (
   filters = {},
   page = 1,
   limit = 20,
+  tenantId = null,
 ) => {
   const { search, year, upcoming } = filters;
 
-  // Validate pagination
   const validPage = Math.max(parseInt(page, 10) || 1, 1);
   const validLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
 
-  // If upcoming filter is requested
   if (upcoming === true || upcoming === "true") {
-    const upcomingHolidays = await getUpcomingHolidays(365);
+    const upcomingHolidays = await getUpcomingHolidays(365, tenantId);
 
-    // Apply search filter if provided
     let filtered = upcomingHolidays;
     if (search && search.trim()) {
       const searchRegex = new RegExp(search.trim(), "i");
@@ -117,7 +112,6 @@ export const getHolidaysWithFilters = async (
       );
     }
 
-    // Paginate results
     const skip = (validPage - 1) * validLimit;
     const data = filtered.slice(skip, skip + validLimit);
     const total = filtered.length;
@@ -133,8 +127,7 @@ export const getHolidaysWithFilters = async (
     };
   }
 
-  // Regular filtering
-  const filterCriteria = {};
+  const filterCriteria = { tenantId };
 
   if (search && search.trim()) {
     filterCriteria.search = search;
@@ -161,12 +154,16 @@ export const getHolidaysWithFilters = async (
  * @param {string} id - Holiday ID
  * @returns {Promise<Object>} Holiday document
  */
-export const getHolidayById = async (id) => {
+export const getHolidayById = async (id, user) => {
   validateObjectId(id);
 
   const holiday = await holidayRepository.findHolidayById(id, true);
 
   if (!holiday) {
+    throwError("Holiday not found", 404);
+  }
+
+  if (holiday.tenantId && holiday.tenantId.toString() !== user.tenantId) {
     throwError("Holiday not found", 404);
   }
 
@@ -181,21 +178,23 @@ export const getHolidayById = async (id) => {
  * @returns {Promise<Object>} Updated holiday
  */
 export const updateHoliday = async (id, data, user) => {
-  // Validate user is admin
   if (user.role !== "Admin") {
     throwError("Only Admins can update holidays", 403);
   }
 
   validateObjectId(id);
 
-  // Get existing holiday
   const existing = await holidayRepository.findHolidayById(id);
   if (!existing) {
     throwError("Holiday not found", 404);
   }
 
-  // Prepare update data
+  if (existing.tenantId.toString() !== user.tenantId) {
+    throwError("Holiday not found", 404);
+  }
+
   const updateData = {};
+  const tenantId = user.tenantId;
 
   if (data.name !== undefined) {
     updateData.name = data.name;
@@ -231,7 +230,6 @@ export const updateHoliday = async (id, data, user) => {
     updateData.isRecurringYearly = data.isRecurringYearly;
   }
 
-  // Check for duplicate (if name or date changed)
   if (data.name || data.date) {
     const checkDate = data.date ? parseDateOnly(data.date) : existing.date;
     const checkName = data.name || existing.name;
@@ -239,6 +237,7 @@ export const updateHoliday = async (id, data, user) => {
     const isDuplicate = await holidayRepository.checkDuplicateHoliday(
       checkName,
       checkDate,
+      tenantId,
       id,
     );
 
@@ -250,6 +249,7 @@ export const updateHoliday = async (id, data, user) => {
       await holidayRepository.checkDuplicateHolidayCrossYear(
         checkName,
         checkDate,
+        tenantId,
         id,
       );
 
@@ -261,15 +261,11 @@ export const updateHoliday = async (id, data, user) => {
     }
   }
 
-  // Update holiday
   const updated = await holidayRepository.updateHoliday(
     id,
     updateData,
     user.userId,
   );
-
-  // Reload cache to reflect changes
-  await loadHolidaysCache();
 
   return updated;
 };
@@ -281,7 +277,6 @@ export const updateHoliday = async (id, data, user) => {
  * @returns {Promise<Object>} Deleted holiday
  */
 export const deleteHoliday = async (id, user) => {
-  // Validate user is admin
   if (user.role !== "Admin") {
     throwError("Only Admins can delete holidays", 403);
   }
@@ -293,10 +288,11 @@ export const deleteHoliday = async (id, user) => {
     throwError("Holiday not found", 404);
   }
 
-  const deleted = await holidayRepository.deleteHoliday(id);
+  if (holiday.tenantId.toString() !== user.tenantId) {
+    throwError("Holiday not found", 404);
+  }
 
-  // Reload cache to reflect changes
-  await loadHolidaysCache();
+  const deleted = await holidayRepository.deleteHoliday(id);
 
   return deleted;
 };
@@ -305,9 +301,9 @@ export const deleteHoliday = async (id, user) => {
  * Get holidays for current year
  * @returns {Promise<Array>} Holidays in current year
  */
-export const getCurrentYearHolidays = async () => {
+export const getCurrentYearHolidays = async (tenantId) => {
   const currentYear = getYear();
-  return getHolidaysForYear(currentYear);
+  return getHolidaysForYear(currentYear, tenantId);
 };
 
 /**
@@ -315,9 +311,9 @@ export const getCurrentYearHolidays = async () => {
  * @param {number} days - Number of days to look ahead
  * @returns {Promise<Array>} Upcoming holidays
  */
-export const getUpcomingHolidaysList = async (days = 365) => {
+export const getUpcomingHolidaysList = async (days = 365, tenantId = null) => {
   const validDays = Math.min(Math.max(parseInt(days, 10) || 365, 1), 3650);
-  return getUpcomingHolidays(validDays);
+  return getUpcomingHolidays(validDays, tenantId);
 };
 
 /**

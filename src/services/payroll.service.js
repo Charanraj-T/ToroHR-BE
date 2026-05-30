@@ -5,8 +5,9 @@ import {
   normalizePayrollSummary
 } from "../dtos/payroll.dto.js";
 import * as payrollRepository from "../repositories/payroll.repository.js";
+import { getTenantEmployeeIds } from "../utils/tenant.util.js";
 import * as salaryStructureRepository from "../repositories/salary-structure.repository.js";
-import { getCompanySettings } from "../repositories/settings.repository.js";
+import { getCompanySettings as getCompanySettingsRepo } from "../repositories/settings.repository.js";
 import { findHolidaysInDateRange } from "../repositories/holiday.repository.js";
 import { getPayrollSettingsInternal } from "./payroll-settings.service.js";
 import {
@@ -42,6 +43,12 @@ const parsePageLimit = (queryParams) => ({
 
 const buildVisibilityQuery = async (requestingUser) => {
   if (requestingUser.role === "Admin") {
+    if (requestingUser.tenantId) {
+      const employeeIds = await getTenantEmployeeIds(requestingUser.tenantId);
+      return {
+        employeeId: { $in: employeeIds.map(id => new mongoose.Types.ObjectId(id)) }
+      };
+    }
     return {};
   }
 
@@ -171,8 +178,11 @@ const buildPayrollRecord = async ({
 
 export const generatePayrollForMonth = async (month, year, requestingUser = null) => {
   const employees = await payrollRepository.findActiveEmployees();
-  const payrollSettings = await getPayrollSettingsInternal();
-  const companySettings = await getCompanySettings();
+  const tenantId = requestingUser?.tenantId;
+  const payrollSettings = await (tenantId ? getPayrollSettingsInternal(tenantId) : getPayrollSettingsInternal());
+  const companySettings = tenantId
+    ? await getCompanySettingsRepo(tenantId) || {}
+    : await getCompanySettingsRepo() || {};
 
   const employeeIds = employees.map((employee) => employee._id);
   const allStructures = await salaryStructureRepository.findSalaryStructuresForEmployees(employeeIds);
@@ -295,8 +305,11 @@ export const regeneratePayroll = async (employeeId, data, requestingUser) => {
     throwError("No salary structure found for this employee and period", 404);
   }
 
-  const payrollSettings = await getPayrollSettingsInternal();
-  const companySettings = await getCompanySettings();
+  const tenantId = requestingUser?.tenantId;
+  const payrollSettings = await (tenantId ? getPayrollSettingsInternal(tenantId) : getPayrollSettingsInternal());
+  const companySettings = tenantId
+    ? await getCompanySettingsRepo(tenantId) || {}
+    : await getCompanySettingsRepo() || {};
 
   const payrollData = await buildPayrollRecord({
     employee,
@@ -421,7 +434,10 @@ export const getPayrollPdf = async (payrollId, requestingUser) => {
 
   await ensurePayrollViewAccess(requestingUser, payroll);
 
-  const companySettings = await getCompanySettings();
+  const tenantId = requestingUser?.tenantId;
+  const companySettings = tenantId
+    ? await getCompanySettingsRepo(tenantId) || {}
+    : await getCompanySettingsRepo() || {};
   const logoSrc = companySettings.companyLogo
     ? await fetchImageBuffer(companySettings.companyLogo)
     : null;

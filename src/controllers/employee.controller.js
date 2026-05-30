@@ -2,7 +2,7 @@ import * as employeeService from "../services/employee.service.js";
 
 export const createEmployee = async (req, res, next) => {
   try {
-    const employee = await employeeService.createEmployee(req.body);
+    const employee = await employeeService.createEmployee(req.body, req.user);
 
     res.status(201).json({
       success: true,
@@ -18,7 +18,10 @@ export const createEmployee = async (req, res, next) => {
 
 export const getEmployees = async (req, res, next) => {
   try {
-    const result = await employeeService.getEmployees(req.query);
+    const result = await employeeService.getEmployees({
+      ...req.query,
+      tenantId: req.user.tenantId,
+    });
 
     res.status(200).json({
       success: true,
@@ -79,7 +82,7 @@ export const deleteEmployee = async (req, res, next) => {
 export const getEmployeeStats = async (req, res, next) => {
   try {
     const { manager } = req.query;
-    const stats = await employeeService.getEmployeeStats(manager);
+    const stats = await employeeService.getEmployeeStats(manager, req.user.tenantId);
 
     res.status(200).json({
       success: true,

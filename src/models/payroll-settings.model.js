@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const payrollSettingsSchema = new mongoose.Schema(
   {
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      required: true,
+      unique: true,
+    },
     payrollGenerationDay: {
       type: Number,
       required: true,

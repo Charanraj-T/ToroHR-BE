@@ -4,6 +4,7 @@ import Employee from "../models/employee.model.js";
 import Leave from "../models/leave.model.js";
 import { findHolidaysInDateRange } from "../repositories/holiday.repository.js";
 import * as attendanceRepository from "../repositories/attendance.repository.js";
+import { getTenantEmployeeIds } from "../utils/tenant.util.js";
 import { getStartOfDay, getEndOfDay, getStartOfDayIST, getEndOfDayIST } from "../utils/date.util.js";
 import {
   calculateHoursWorked,
@@ -37,7 +38,7 @@ export const checkIn = async (employeeId) => {
     const todayStart = new Date(todayDateStr + 'T00:00:00.000Z');
     const todayEnd = new Date(todayDateStr + 'T23:59:59.999Z');
 
-    const holidays = await findHolidaysInDateRange(todayStart, todayEnd);
+    const holidays = await findHolidaysInDateRange(todayStart, todayEnd, employee.userId?.tenantId);
     if (holidays.length > 0) {
       const error = new Error(`Today is a holiday: ${holidays[0].name}`);
       error.statusCode = 400;
@@ -209,24 +210,10 @@ export const markAttendanceManual = async (
   session.startTransaction();
 
   try {
-    const employee = await Employee.findById(employeeId).session(session);
+    const employee = await Employee.findById(employeeId).populate("userId").session(session);
     if (!employee) {
       const error = new Error("Employee not found");
       error.statusCode = 404;
-      throw error;
-    }
-
-    const adminUser = await employee.populate("userId");
-    if (adminUser.userId?.role === "Admin") {
-      const error = new Error("Cannot mark attendance for admin");
-      error.statusCode = 403;
-      throw error;
-    }
-
-    const parsedDate = new Date(date);
-    if (isFutureDate(parsedDate)) {
-      const error = new Error("Cannot mark attendance for future date");
-      error.statusCode = 400;
       throw error;
     }
 
@@ -234,7 +221,7 @@ export const markAttendanceManual = async (
     const dateStart = new Date(dateStr + 'T00:00:00.000Z');
     const dateEnd = new Date(dateStr + 'T23:59:59.999Z');
 
-    const holidays = await findHolidaysInDateRange(dateStart, dateEnd);
+    const holidays = await findHolidaysInDateRange(dateStart, dateEnd, employee.userId?.tenantId);
     if (holidays.length > 0 && status !== "Holiday") {
       const error = new Error(`Cannot mark attendance - ${dateStr} is a holiday: ${holidays[0].name}`);
       error.statusCode = 400;
@@ -454,10 +441,16 @@ export const getMyAttendance = async (employeeId, filters) => {
 };
 
 export const getAllAttendance = async (filters) => {
-  const { page, limit, employeeId, status, department, managerId, startDate, endDate, search } =
+  const { page, limit, employeeId, status, department, managerId, startDate, endDate, search, tenantId } =
     filters;
 
+  let tenantEmployeeIds;
+  if (tenantId) {
+    tenantEmployeeIds = await getTenantEmployeeIds(tenantId);
+  }
+
   const result = await attendanceRepository.findAttendanceWithFilters({
+    employeeIds: tenantEmployeeIds,
     employeeId,
     status,
     department,
@@ -510,7 +503,7 @@ export const getAttendanceForExport = async (startDate, endDate, filters = {}) =
   const start = getStartOfDay(startDate);
   const end = getEndOfDay(endDate);
 
-  const holidays = await findHolidaysInDateRange(start, end);
+  const holidays = await findHolidaysInDateRange(start, end, filters.tenantId);
   const holidayDateSet = new Set(holidays.map(h => {
     const d = new Date(h.date);
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;

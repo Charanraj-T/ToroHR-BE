@@ -82,6 +82,7 @@ export const getHolidays = async (req, res, next) => {
       },
       value.page,
       value.limit,
+      req.user.tenantId,
     );
 
     res.status(200).json({
@@ -110,7 +111,7 @@ export const getHolidays = async (req, res, next) => {
  */
 export const getCurrentYearHolidays = async (req, res, next) => {
   try {
-    const holidays = await holidayService.getCurrentYearHolidays();
+    const holidays = await holidayService.getCurrentYearHolidays(req.user.tenantId);
 
     res.status(200).json({
       success: true,
@@ -136,7 +137,7 @@ export const getCurrentYearHolidays = async (req, res, next) => {
 export const getUpcomingHolidays = async (req, res, next) => {
   try {
     const days = parseInt(req.query.days, 10) || 365;
-    const holidays = await holidayService.getUpcomingHolidaysList(days);
+    const holidays = await holidayService.getUpcomingHolidaysList(days, req.user.tenantId);
 
     res.status(200).json({
       success: true,
@@ -162,7 +163,7 @@ export const getHolidayById = async (req, res, next) => {
     const value = validate(getHolidayByIdSchema, { id: req.params.id }, next);
     if (!value) return;
 
-    const holiday = await holidayService.getHolidayById(value.id);
+    const holiday = await holidayService.getHolidayById(value.id, req.user);
 
     res.status(200).json({
       success: true,

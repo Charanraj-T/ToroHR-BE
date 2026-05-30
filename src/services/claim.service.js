@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { normalizeClaim, normalizeClaimList, normalizeClaimSummary } from "../dtos/claim.dto.js";
 import * as claimRepository from "../repositories/claim.repository.js";
+import { getTenantEmployeeIds } from "../utils/tenant.util.js";
 import { getEndOfDay, parseDateOnly } from "../utils/date.util.js";
 import {
   CANCELLABLE_STATUSES,
@@ -119,6 +120,12 @@ const ensureReimbursementAccess = (requestingUser, employee) => {
 
 const buildVisibilityQuery = async (requestingUser) => {
   if (requestingUser.role === "Admin") {
+    if (requestingUser.tenantId) {
+      const employeeIds = await getTenantEmployeeIds(requestingUser.tenantId);
+      return {
+        employeeId: { $in: employeeIds.map(id => new mongoose.Types.ObjectId(id)) }
+      };
+    }
     return {};
   }
 

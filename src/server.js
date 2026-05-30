@@ -13,9 +13,9 @@ import claimRoutes from "./routes/claim.routes.js";
 import payrollSettingsRoutes from "./routes/payroll-settings.routes.js";
 import salaryStructureRoutes from "./routes/salary-structure.routes.js";
 import payrollRoutes from "./routes/payroll.routes.js";
+import tenantRoutes from "./routes/tenant.routes.js";
 import { startLeaveBalanceResetJob } from "./utils/leave.util.js";
 import { startPayrollGenerationJob } from "./utils/payroll.util.js";
-import { initializeHolidaysCache } from "./services/holiday.service.js";
 import { getPayrollSettingsInternal } from "./services/payroll-settings.service.js";
 import { runAutoPayrollGeneration } from "./services/payroll.service.js";
 
@@ -44,13 +44,13 @@ app.use("/api/claims", claimRoutes);
 app.use("/api/payroll", payrollSettingsRoutes);
 app.use("/api/payroll", salaryStructureRoutes);
 app.use("/api/payroll", payrollRoutes);
+app.use("/api/tenants", tenantRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
 
 connectDB().then(() => {
   startLeaveBalanceResetJob();
-  initializeHolidaysCache();
   startPayrollGenerationJob({
     getSettings: getPayrollSettingsInternal,
     runAutoGeneration: runAutoPayrollGeneration

@@ -4,6 +4,7 @@ import {
   normalizeSalaryStructureList
 } from "../dtos/salary-structure.dto.js";
 import * as salaryStructureRepository from "../repositories/salary-structure.repository.js";
+import { getTenantEmployeeIds } from "../utils/tenant.util.js";
 
 const throwError = (message, statusCode) => {
   const error = new Error(message);
@@ -36,6 +37,11 @@ const ensureSalaryManageAccess = (requestingUser) => {
 
 const buildListQuery = async (filters, requestingUser) => {
   const query = {};
+
+  if (requestingUser.role === "Admin" && requestingUser.tenantId) {
+    const employeeIds = await getTenantEmployeeIds(requestingUser.tenantId);
+    query.employeeId = { $in: employeeIds.map(id => new mongoose.Types.ObjectId(id)) };
+  }
 
   if (filters.employee) {
     query.employeeId = new mongoose.Types.ObjectId(filters.employee);

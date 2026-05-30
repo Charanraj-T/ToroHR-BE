@@ -88,8 +88,13 @@ export const listEmployees = async ({ query, page, limit }) => {
   };
 };
 
-export const getStats = async (managerId = null) => {
+export const getStats = async (managerId = null, tenantId = null) => {
   const matchStage = managerId ? { reportingManagerId: new mongoose.Types.ObjectId(managerId) } : {};
+
+  if (tenantId) {
+    const userIds = (await mongoose.model("User").find({ tenantId }).select("_id").lean()).map(u => u._id);
+    matchStage.userId = { $in: userIds };
+  }
   
   const [stats] = await Employee.aggregate([
     {

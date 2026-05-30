@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const companySettingsSchema = new mongoose.Schema(
   {
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      required: true,
+      unique: true,
+    },
     companyName: {
       type: String,
       trim: true,

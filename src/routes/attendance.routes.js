@@ -1,10 +1,11 @@
 import express from "express";
 import * as attendanceController from "../controllers/attendance.controller.js";
-import { authorizeRoles, verifyToken } from "../middlewares/auth.middleware.js";
+import { authorizeRoles, verifyToken, blockSuperAdmin } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
 router.use(verifyToken);
+router.use(blockSuperAdmin);
 
 router.post(
   "/check-in",

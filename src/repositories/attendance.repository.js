@@ -65,6 +65,7 @@ const projectFields = {
 export const findAttendanceWithFilters = async (filters) => {
   const {
     employeeId,
+    employeeIds,
     startDate,
     endDate,
     status,
@@ -77,7 +78,9 @@ export const findAttendanceWithFilters = async (filters) => {
 
   const query = {};
 
-  if (employeeId) {
+  if (employeeIds) {
+    query.employeeId = { $in: employeeIds.map(id => new mongoose.Types.ObjectId(id)) };
+  } else if (employeeId) {
     query.employeeId = new mongoose.Types.ObjectId(employeeId);
   }
 

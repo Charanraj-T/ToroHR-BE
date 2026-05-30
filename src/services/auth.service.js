@@ -3,14 +3,22 @@ import User from "../models/user.model.js";
 import * as employeeRepository from "../repositories/employee.repository.js";
 import { generateToken } from "../utils/jwt.js";
 
-const sanitizeUser = (user, employee = null) => ({
-  id: user._id,
-  employeeId: employee ? employee._id.toString() : null,
-  name: user.name,
-  email: user.email,
-  role: user.role,
-  isActive: user.isActive
-});
+const sanitizeUser = (user, employee = null, includeTenant = false) => {
+  const data = {
+    id: user._id,
+    employeeId: employee ? employee._id.toString() : null,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    isActive: user.isActive,
+  };
+
+  if (includeTenant) {
+    data.tenantId = user.tenantId ? user.tenantId.toString() : null;
+  }
+
+  return data;
+};
 
 export const login = async (loginData) => {
   const { isValid, value, errors } = validateLoginDto(loginData);
@@ -46,12 +54,21 @@ export const login = async (loginData) => {
     throw error;
   }
 
-  const employee = await employeeRepository.findEmployeeByUserId(user._id);
+  if (user.role !== "SuperAdmin") {
+    const tenant = await (await import("../models/tenant.model.js")).default.findById(user.tenantId).lean();
+    if (!tenant || tenant.status !== "Active") {
+      const error = new Error("Your company account is inactive. Contact your administrator.");
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
+  const employee = user.role !== "SuperAdmin" ? await employeeRepository.findEmployeeByUserId(user._id) : null;
   const token = generateToken(user, employee ? employee._id.toString() : null);
 
   return {
     token,
-    user: sanitizeUser(user, employee)
+    user: sanitizeUser(user, employee, true)
   };
 };
 
@@ -64,7 +81,7 @@ export const getCurrentUser = async (userId) => {
     throw error;
   }
 
-  const employee = await employeeRepository.findEmployeeByUserId(user._id);
+  const employee = user.role !== "SuperAdmin" ? await employeeRepository.findEmployeeByUserId(user._id) : null;
 
-  return sanitizeUser(user, employee);
+  return sanitizeUser(user, employee, true);
 };

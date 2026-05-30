@@ -141,7 +141,7 @@ export const getAttendance = async (req, res, next) => {
     let result;
 
     if (req.user.role === "Admin") {
-      result = await attendanceService.getAllAttendance(value);
+      result = await attendanceService.getAllAttendance({ ...value, tenantId: req.user.tenantId });
     } else if (req.user.role === "Manager") {
       result = await attendanceService.getTeamAttendance(req.user.employeeId, value);
     } else {
@@ -260,6 +260,10 @@ export const exportCsv = async (req, res, next) => {
     if (req.user.role === "Manager") {
       delete filters.employeeId;
       filters.managerId = req.user.employeeId;
+    }
+
+    if (req.user.role === "Admin") {
+      filters.tenantId = req.user.tenantId;
     }
 
     const employees = await attendanceService.getAttendanceForExport(startDate, endDate, filters);

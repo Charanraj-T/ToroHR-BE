@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import User from "../models/user.model.js";
 import { validateCreateEmployeeDto, validateUpdateEmployeeDto } from "../dtos/employee.dto.js";
 import * as employeeRepository from "../repositories/employee.repository.js";
+import { getTenantUserIds } from "../utils/tenant.util.js";
 
 const normalizeEmployee = (employee, { includeSensitive = true } = {}) => {
   const data = {
@@ -107,7 +108,7 @@ const ensureUniqueEmployeeFields = async ({ email, phoneNumber }, ignoredIds = {
   }
 };
 
-export const createEmployee = async (employeeData) => {
+export const createEmployee = async (employeeData, requestingUser = null) => {
   const value = validateCreateEmployeeDto(employeeData);
 
   await ensureUniqueEmployeeFields(value);
@@ -129,6 +130,7 @@ export const createEmployee = async (employeeData) => {
             phoneNumber: value.phoneNumber,
             password: value.password,
             role: value.role,
+            tenantId: requestingUser?.tenantId || null,
             isActive: value.status === "Active"
           }
         ],
@@ -174,6 +176,11 @@ export const getEmployees = async (queryParams) => {
   const page = Math.max(parseInt(queryParams.page, 10) || 1, 1);
   const limit = Math.min(Math.max(parseInt(queryParams.limit, 10) || 10, 1), 100);
   const query = {};
+
+  if (queryParams.tenantId) {
+    const userIds = await getTenantUserIds(queryParams.tenantId);
+    query.userId = { $in: userIds };
+  }
 
   if (queryParams.status && !["Active", "Inactive"].includes(queryParams.status)) {
     throwError("Status must be Active or Inactive", 400);
@@ -319,6 +326,6 @@ export const deleteEmployee = async (id) => {
   }
 };
 
-export const getEmployeeStats = async (managerId = null) => {
-  return await employeeRepository.getStats(managerId);
+export const getEmployeeStats = async (managerId = null, tenantId = null) => {
+  return await employeeRepository.getStats(managerId, tenantId);
 };

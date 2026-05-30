@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { normalizeLeave, normalizeLeaveBalance, normalizeLeaveList } from "../dtos/leave.dto.js";
 import * as leaveRepository from "../repositories/leave.repository.js";
+import { getTenantEmployeeIds } from "../utils/tenant.util.js";
 import { findHolidaysInDateRange } from "../repositories/holiday.repository.js";
 import {
   calculateLeaveDays,
@@ -140,6 +141,12 @@ const validateBalanceForApproval = async (leave, session = null) => {
 
 const buildVisibilityQuery = async (requestingUser) => {
   if (requestingUser.role === "Admin") {
+    if (requestingUser.tenantId) {
+      const employeeIds = await getTenantEmployeeIds(requestingUser.tenantId);
+      return {
+        employeeId: { $in: employeeIds.map(id => new mongoose.Types.ObjectId(id)) }
+      };
+    }
     return {};
   }
 
@@ -247,7 +254,7 @@ export const applyLeave = async (leaveData, requestingUser) => {
         throwError("Leave request overlaps with an existing pending or approved leave", 409);
       }
 
-      const holidaysInRange = await findHolidaysInDateRange(from, to);
+      const holidaysInRange = await findHolidaysInDateRange(from, to, requestingUser.tenantId);
       if (holidaysInRange.length > 0) {
         const names = holidaysInRange.map(h => h.name).join(", ");
         throwError(`Selected date range includes a holiday: ${names}`, 400);
@@ -376,7 +383,7 @@ export const approveLeave = async (leaveId, requestingUser) => {
         throwError(`Insufficient ${leave.leaveType} balance`, 400);
       }
 
-      const holidaysInRange = await findHolidaysInDateRange(leave.fromDate, leave.toDate);
+      const holidaysInRange = await findHolidaysInDateRange(leave.fromDate, leave.toDate, requestingUser.tenantId);
       const dates = getWorkingDatesBetween(leave.fromDate, leave.toDate, holidaysInRange.map(h => h.date));
       await leaveRepository.markAttendanceAsLeave({
         employeeId: leave.employeeId._id,
@@ -488,7 +495,7 @@ export const cancelLeave = async (leaveId, cancelData, requestingUser) => {
           session
         );
 
-        const holidaysInRange = await findHolidaysInDateRange(leave.fromDate, leave.toDate);
+        const holidaysInRange = await findHolidaysInDateRange(leave.fromDate, leave.toDate, requestingUser.tenantId);
         const dates = getWorkingDatesBetween(leave.fromDate, leave.toDate, holidaysInRange.map(h => h.date));
         await leaveRepository.clearLeaveAttendance({
           employeeId: leave.employeeId._id,
@@ -566,7 +573,7 @@ export const updateLeave = async (leaveId, leaveData, requestingUser) => {
         throwError("Updated leave request overlaps with an existing pending or approved leave", 409);
       }
 
-      const holidaysInRange = await findHolidaysInDateRange(from, to);
+      const holidaysInRange = await findHolidaysInDateRange(from, to, requestingUser.tenantId);
       if (holidaysInRange.length > 0) {
         const names = holidaysInRange.map(h => h.name).join(", ");
         throwError(`Selected date range includes a holiday: ${names}`, 400);

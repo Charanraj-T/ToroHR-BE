@@ -1,11 +1,11 @@
 import express from "express";
 import * as holidayController from "../controllers/holiday.controller.js";
-import { authorizeRoles, verifyToken } from "../middlewares/auth.middleware.js";
+import { authorizeRoles, verifyToken, blockSuperAdmin } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
-// All holiday routes require authentication
 router.use(verifyToken);
+router.use(blockSuperAdmin);
 
 /**
  * ADMIN ROUTES - Holiday Management

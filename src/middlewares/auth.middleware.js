@@ -33,3 +33,12 @@ export const authorizeRoles = (...roles) => {
     next();
   };
 };
+
+export const blockSuperAdmin = (req, res, next) => {
+  if (req.user.role === "SuperAdmin") {
+    const error = new Error("SuperAdmin cannot access this resource");
+    error.statusCode = 403;
+    return next(error);
+  }
+  next();
+};

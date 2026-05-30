@@ -12,7 +12,7 @@ export const getPayrollSettings = async (requestingUser) => {
     throwError("Only admins can view payroll settings", 403);
   }
 
-  const settings = await payrollSettingsRepository.getPayrollSettings();
+  const settings = await payrollSettingsRepository.getPayrollSettings(requestingUser.tenantId);
   return normalizePayrollSettings(settings);
 };
 
@@ -21,10 +21,13 @@ export const updatePayrollSettings = async (data, requestingUser) => {
     throwError("Only admins can update payroll settings", 403);
   }
 
-  const settings = await payrollSettingsRepository.updatePayrollSettings(data);
+  const settings = await payrollSettingsRepository.updatePayrollSettings({
+    ...data,
+    tenantId: requestingUser.tenantId,
+  });
   return normalizePayrollSettings(settings);
 };
 
-export const getPayrollSettingsInternal = async () => {
-  return payrollSettingsRepository.getPayrollSettings();
+export const getPayrollSettingsInternal = async (tenantId) => {
+  return payrollSettingsRepository.getPayrollSettings(tenantId);
 };
