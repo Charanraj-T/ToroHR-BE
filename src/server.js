@@ -10,8 +10,14 @@ import leaveRoutes from "./routes/leave.routes.js";
 import holidayRoutes from "./routes/holiday.routes.js";
 import settingsRoutes from "./routes/settings.routes.js";
 import claimRoutes from "./routes/claim.routes.js";
+import payrollSettingsRoutes from "./routes/payroll-settings.routes.js";
+import salaryStructureRoutes from "./routes/salary-structure.routes.js";
+import payrollRoutes from "./routes/payroll.routes.js";
 import { startLeaveBalanceResetJob } from "./utils/leave.util.js";
+import { startPayrollGenerationJob } from "./utils/payroll.util.js";
 import { initializeHolidaysCache } from "./services/holiday.service.js";
+import { getPayrollSettingsInternal } from "./services/payroll-settings.service.js";
+import { runAutoPayrollGeneration } from "./services/payroll.service.js";
 
 dotenv.config();
 
@@ -35,6 +41,9 @@ app.use("/api/leaves", leaveRoutes);
 app.use("/api/holidays", holidayRoutes);
 app.use("/api/settings", settingsRoutes);
 app.use("/api/claims", claimRoutes);
+app.use("/api/payroll", payrollSettingsRoutes);
+app.use("/api/payroll", salaryStructureRoutes);
+app.use("/api/payroll", payrollRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
@@ -42,6 +51,10 @@ app.use(errorHandler);
 connectDB().then(() => {
   startLeaveBalanceResetJob();
   initializeHolidaysCache();
+  startPayrollGenerationJob({
+    getSettings: getPayrollSettingsInternal,
+    runAutoGeneration: runAutoPayrollGeneration
+  });
 
   app.listen(PORT, () => {
     console.log(`ToroHR server running on port ${PORT}`);
