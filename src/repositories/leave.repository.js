@@ -162,10 +162,7 @@ export const findEmployeeIdsBySearch = async (search) => {
   const employees = await Employee.find({
     $or: [
       { fullName: searchRegex },
-      { employeeId: searchRegex },
-      { email: searchRegex },
-      { department: searchRegex },
-      { designation: searchRegex }
+      { employeeId: searchRegex }
     ]
   })
     .select("_id")

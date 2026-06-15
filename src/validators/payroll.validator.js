@@ -60,17 +60,16 @@ export const listPayrollSchema = Joi.object({
   limit: Joi.number().integer().min(1).max(100).default(20),
   month: Joi.number().integer().min(1).max(12).allow("").empty(""),
   year: Joi.number().integer().min(2000).max(2100).allow("").empty(""),
-  employee: objectId.allow("").empty(""),
   status: Joi.string()
     .valid(...PAYROLL_STATUSES)
     .allow("")
-    .empty("")
+    .empty(""),
+  search: Joi.string().trim().allow("")
 });
 
 export const listSalaryStructureSchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
-  employee: objectId.allow("").empty(""),
   month: Joi.number().integer().min(1).max(12).allow("").empty(""),
   year: Joi.number().integer().min(2000).max(2100).allow("").empty("")
 });

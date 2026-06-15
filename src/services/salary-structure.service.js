@@ -43,10 +43,6 @@ const buildListQuery = async (filters, requestingUser) => {
     query.employeeId = { $in: employeeIds.map(id => new mongoose.Types.ObjectId(id)) };
   }
 
-  if (filters.employee) {
-    query.employeeId = new mongoose.Types.ObjectId(filters.employee);
-  }
-
   if (filters.month) {
     query.effectiveMonth = parseInt(filters.month, 10);
   }
@@ -60,15 +56,6 @@ const buildListQuery = async (filters, requestingUser) => {
     query.employeeId = {
       $in: [new mongoose.Types.ObjectId(requestingUser.employeeId), ...teamIds]
     };
-
-    if (filters.employee) {
-      const filterId = filters.employee.toString();
-      const allowedIds = [requestingUser.employeeId, ...teamIds.map((id) => id.toString())];
-      if (!allowedIds.includes(filterId)) {
-        throwError("You do not have permission to view this employee salary structure", 403);
-      }
-      query.employeeId = new mongoose.Types.ObjectId(filterId);
-    }
   }
 
   return query;

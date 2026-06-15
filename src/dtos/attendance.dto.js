@@ -34,7 +34,6 @@ export const updateAttendanceSchema = Joi.object({
 export const getAttendanceFiltersSchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
-  employeeId: Joi.string().hex().length(24).allow("").empty(""),
   status: Joi.string().valid("Present", "Absent", "Leave", "Weekend", "Half-day").allow(""),
   department: Joi.string().allow(""),
   managerId: Joi.string().hex().length(24).allow(""),

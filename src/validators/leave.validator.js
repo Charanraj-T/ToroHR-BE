@@ -19,7 +19,6 @@ export const createLeaveSchema = Joi.object({
 export const listLeaveSchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
-  employee: objectId.allow("").empty(""),
   leaveType: Joi.string().valid(...LEAVE_TYPES).allow("").empty(""),
   dayType: Joi.string().valid(...LEAVE_DAY_TYPES).allow("").empty(""),
   status: Joi.string().valid(...LEAVE_STATUSES).allow("").empty(""),

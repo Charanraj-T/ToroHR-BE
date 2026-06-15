@@ -293,17 +293,18 @@ export const updateEmployee = async (id, employeeData, requestingUser = null) =>
         modifiedAt: new Date()
       }, session);
 
+      const user = await User.findById(employee.userId._id).select("+password role").session(session);
+
       const userUpdates = {};
 
       if (value.fullName) userUpdates.name = value.fullName;
       if (value.email) userUpdates.email = value.email.toLowerCase();
       if (value.phoneNumber) userUpdates.phoneNumber = value.phoneNumber;
       if (value.password) userUpdates.password = value.password;
-      if (value.role) userUpdates.role = value.role;
+      if (value.role && user.role !== "Admin") userUpdates.role = value.role;
       if (value.status) userUpdates.isActive = value.status === "Active";
 
       if (Object.keys(userUpdates).length > 0) {
-        const user = await User.findById(employee.userId._id).select("+password").session(session);
         Object.assign(user, userUpdates);
         await user.save({ session });
       }

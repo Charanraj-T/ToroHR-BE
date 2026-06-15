@@ -30,6 +30,8 @@ const throwError = (message, statusCode) => {
   throw error;
 };
 
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const validateObjectId = (id, label = "ID") => {
   if (!mongoose.Types.ObjectId.isValid(id)) {
     throwError(`${label} is invalid`, 400);
@@ -64,10 +66,28 @@ const buildVisibilityQuery = async (requestingUser) => {
   return { employeeId: new mongoose.Types.ObjectId(requestingUser.employeeId) };
 };
 
-const applyFilters = (query, filters) => {
+const applyFilters = async (query, filters) => {
   if (filters.month) query.month = parseInt(filters.month, 10);
   if (filters.year) query.year = parseInt(filters.year, 10);
-  if (filters.employee) query.employeeId = new mongoose.Types.ObjectId(filters.employee);
+
+  if (filters.search) {
+    const searchRegex = new RegExp(escapeRegex(filters.search), "i");
+    const employees = await mongoose.model("Employee").find({
+      $or: [
+        { fullName: searchRegex },
+        { employeeId: searchRegex }
+      ]
+    }).select("_id").lean();
+    const ids = employees.map(e => e._id);
+    if (ids.length > 0) {
+      query.employeeId = query.employeeId
+        ? { $in: [query.employeeId, ...ids] }
+        : { $in: ids };
+    } else {
+      query._id = null;
+    }
+  }
+
   if (filters.status) query.status = filters.status;
   return query;
 };
@@ -397,7 +417,7 @@ export const markPayrollPaid = async (payrollId, requestingUser) => {
 export const listPayrolls = async (filters, requestingUser) => {
   const { page, limit } = parsePageLimit(filters);
   const visibilityQuery = await buildVisibilityQuery(requestingUser);
-  const filterQuery = applyFilters({}, filters);
+  const filterQuery = await applyFilters({}, filters);
   const query = mergeEmployeeVisibility(visibilityQuery, filterQuery);
 
   const result = await payrollRepository.listPayrolls({ query, page, limit });

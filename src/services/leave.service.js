@@ -163,10 +163,6 @@ const buildVisibilityQuery = async (requestingUser) => {
 };
 
 const applyFilters = async (query, filters) => {
-  if (filters.employee) {
-    query.employeeId = new mongoose.Types.ObjectId(filters.employee);
-  }
-
   if (filters.leaveType) {
     query.leaveType = filters.leaveType;
   }
@@ -199,14 +195,14 @@ const applyFilters = async (query, filters) => {
   if (filters.search) {
     const escapedSearch = escapeRegex(filters.search);
     const employeeIds = await leaveRepository.findEmployeeIdsBySearch(escapedSearch);
-    const searchRegex = new RegExp(escapedSearch, "i");
 
-    query.$or = [
-      { reason: searchRegex },
-      { rejectionReason: searchRegex },
-      { cancellationReason: searchRegex },
-      { employeeId: { $in: employeeIds } }
-    ];
+    if (employeeIds.length > 0) {
+      query.employeeId = query.employeeId
+        ? { $in: [query.employeeId, ...employeeIds] }
+        : { $in: employeeIds };
+    } else {
+      query._id = null;
+    }
   }
 
   return query;

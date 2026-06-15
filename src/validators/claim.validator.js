@@ -48,7 +48,6 @@ export const updateClaimSchema = Joi.object({
 export const listClaimSchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
-  employee: objectId.allow("").empty(""),
   status: Joi.string()
     .valid(...CLAIM_STATUSES)
     .allow("")
@@ -58,5 +57,6 @@ export const listClaimSchema = Joi.object({
   }),
   dateTo: Joi.string().pattern(dateStringRegex).allow("").empty("").messages({
     "string.pattern.base": "dateTo must be in YYYY-MM-DD format"
-  })
+  }),
+  search: Joi.string().trim().allow("")
 });
