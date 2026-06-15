@@ -113,6 +113,7 @@ export const computeAttendanceSnapshot = ({
     attendanceMap.set(dateKey(record.date), record.status);
   }
 
+  let totalWeekdays = 0;
   let workingDays = 0;
   let presentDays = 0;
   let leaveDays = 0;
@@ -124,11 +125,11 @@ export const computeAttendanceSnapshot = ({
   for (const date of dates) {
     if (isWeekend(date)) continue;
 
+    totalWeekdays += 1;
     const key = dateKey(date);
     const isHoliday = holidayDateSet.has(key);
 
     if (isHoliday) {
-      workingDays += 1;
       holidayDays += 1;
       continue;
     }
@@ -151,8 +152,6 @@ export const computeAttendanceSnapshot = ({
     } else if (status === "Half-day") {
       presentDays += 0.5;
       lopDays += 0.5;
-    } else if (status === "Holiday") {
-      holidayDays += 1;
     } else if (status === "Leave") {
       lopDays += 1;
     } else {
@@ -161,6 +160,7 @@ export const computeAttendanceSnapshot = ({
   }
 
   return {
+    totalWeekdays,
     workingDays,
     presentDays: roundRupee(presentDays * 100) / 100,
     leaveDays: roundRupee(leaveDays * 100) / 100,
@@ -176,8 +176,8 @@ export const calculateFullTimePay = (salaryStructure, attendanceSnapshot, defaul
   const gross = basic + houseRentAllowance + specialAllowance;
   const pf = salaryStructure.pf ?? defaultPF ?? 0;
 
-  const { workingDays, lopDays } = attendanceSnapshot;
-  const perDay = workingDays > 0 ? gross / workingDays : 0;
+  const { totalWeekdays, lopDays } = attendanceSnapshot;
+  const perDay = totalWeekdays > 0 ? gross / totalWeekdays : 0;
   const lopDeduction = roundRupee(perDay * lopDays);
   const netPay = roundRupee(gross - pf - lopDeduction);
 

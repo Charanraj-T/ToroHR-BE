@@ -15,15 +15,7 @@ const leavePopulateOptions = [
     select: "name email role"
   },
   {
-    path: "approvedBy",
-    select: "name email role"
-  },
-  {
-    path: "rejectedBy",
-    select: "name email role"
-  },
-  {
-    path: "cancelledBy",
+    path: "modifiedBy",
     select: "name email role"
   }
 ];
@@ -32,6 +24,10 @@ const listLeavePopulateOptions = [
   {
     path: "employeeId",
     select: "employeeId fullName email department designation reportingManagerId"
+  },
+  {
+    path: "modifiedBy",
+    select: "name email role"
   }
 ];
 

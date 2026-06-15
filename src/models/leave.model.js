@@ -47,21 +47,12 @@ const leaveSchema = new mongoose.Schema(
       ref: "User",
       required: true
     },
-    approvedBy: {
+    modifiedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null
     },
-    approvedAt: {
-      type: Date,
-      default: null
-    },
-    rejectedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null
-    },
-    rejectedAt: {
+    modifiedAt: {
       type: Date,
       default: null
     },
@@ -70,15 +61,6 @@ const leaveSchema = new mongoose.Schema(
       trim: true,
       maxlength: [500, "Rejection reason cannot exceed 500 characters"],
       default: ""
-    },
-    cancelledBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null
-    },
-    cancelledAt: {
-      type: Date,
-      default: null
     },
     cancellationReason: {
       type: String,

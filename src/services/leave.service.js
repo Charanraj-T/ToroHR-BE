@@ -398,10 +398,8 @@ export const approveLeave = async (leaveId, requestingUser) => {
         leaveId,
         {
           status: "Approved",
-          approvedBy: requestingUser.userId,
-          approvedAt: new Date(),
-          rejectedBy: null,
-          rejectedAt: null,
+          modifiedBy: requestingUser.userId,
+          modifiedAt: new Date(),
           rejectionReason: ""
         },
         session
@@ -444,11 +442,9 @@ export const rejectLeave = async (leaveId, rejectData, requestingUser) => {
         leaveId,
         {
           status: "Rejected",
-          rejectedBy: requestingUser.userId,
-          rejectedAt: new Date(),
-          rejectionReason: rejectData.rejectionReason || "",
-          approvedBy: null,
-          approvedAt: null
+          modifiedBy: requestingUser.userId,
+          modifiedAt: new Date(),
+          rejectionReason: rejectData.rejectionReason || ""
         },
         session
       );
@@ -508,8 +504,8 @@ export const cancelLeave = async (leaveId, cancelData, requestingUser) => {
         leaveId,
         {
           status: "Cancelled",
-          cancelledBy: requestingUser.userId,
-          cancelledAt: new Date(),
+          modifiedBy: requestingUser.userId,
+          modifiedAt: new Date(),
           cancellationReason: cancelData.cancellationReason || ""
         },
         session

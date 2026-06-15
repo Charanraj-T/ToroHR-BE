@@ -14,6 +14,23 @@ const normalizeEmployeeForLeave = (employee) => {
   };
 };
 
+const normalizeUserRef = (user) => {
+  if (!user) {
+    return null;
+  }
+
+  if (typeof user !== 'object' || !user._id) {
+    return null;
+  }
+
+  return {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    role: user.role
+  };
+};
+
 export const normalizeLeave = (leave) => {
   if (!leave) {
     return null;
@@ -29,14 +46,10 @@ export const normalizeLeave = (leave) => {
     dayType: leave.dayType,
     reason: leave.reason,
     status: leave.status,
-    appliedBy: leave.appliedBy,
-    approvedBy: leave.approvedBy,
-    approvedAt: leave.approvedAt,
-    rejectedBy: leave.rejectedBy,
-    rejectedAt: leave.rejectedAt,
+    appliedBy: normalizeUserRef(leave.appliedBy),
+    modifiedBy: normalizeUserRef(leave.modifiedBy),
+    modifiedAt: leave.modifiedAt,
     rejectionReason: leave.rejectionReason,
-    cancelledBy: leave.cancelledBy,
-    cancelledAt: leave.cancelledAt,
     cancellationReason: leave.cancellationReason,
     createdAt: leave.createdAt,
     updatedAt: leave.updatedAt
