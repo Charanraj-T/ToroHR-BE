@@ -4,6 +4,14 @@ import { validateCreateEmployeeDto, validateUpdateEmployeeDto } from "../dtos/em
 import * as employeeRepository from "../repositories/employee.repository.js";
 import { getTenantUserIds } from "../utils/tenant.util.js";
 
+const normalizeModifiedBy = (modifiedBy) => {
+  if (!modifiedBy) return null;
+  if (typeof modifiedBy === "object" && modifiedBy._id) {
+    return { id: modifiedBy._id, name: modifiedBy.name };
+  }
+  return { id: modifiedBy.toString(), name: null };
+};
+
 const normalizeEmployee = (employee, { includeSensitive = true } = {}) => {
   const data = {
     id: employee._id,
@@ -20,6 +28,8 @@ const normalizeEmployee = (employee, { includeSensitive = true } = {}) => {
     reportingManager: employee.reportingManagerId,
     employmentType: employee.employmentType,
     status: employee.status,
+    modifiedBy: normalizeModifiedBy(employee.modifiedBy),
+    modifiedAt: employee.modifiedAt,
     createdAt: employee.createdAt,
     updatedAt: employee.updatedAt
   };
@@ -157,7 +167,9 @@ export const createEmployee = async (employeeData, requestingUser = null) => {
           branchName: value.branchName,
           bankName: value.bankName,
           panNumber: value.panNumber,
-          aadhaarNumber: value.aadhaarNumber
+          aadhaarNumber: value.aadhaarNumber,
+          modifiedBy: requestingUser?.userId || user._id,
+          modifiedAt: new Date()
         },
         session
       );
@@ -234,7 +246,7 @@ export const getEmployeeById = async (id) => {
   return normalizeEmployee(employee);
 };
 
-export const updateEmployee = async (id, employeeData) => {
+export const updateEmployee = async (id, employeeData, requestingUser = null) => {
   validateObjectId(id, "Employee ID");
 
   const value = validateUpdateEmployeeDto(employeeData);
@@ -275,7 +287,11 @@ export const updateEmployee = async (id, employeeData) => {
         employeeUpdates.reportingManagerId = null;
       }
 
-      updatedEmployee = await employeeRepository.updateEmployeeById(id, employeeUpdates, session);
+      updatedEmployee = await employeeRepository.updateEmployeeById(id, {
+        ...employeeUpdates,
+        modifiedBy: requestingUser?.userId,
+        modifiedAt: new Date()
+      }, session);
 
       const userUpdates = {};
 
@@ -299,7 +315,7 @@ export const updateEmployee = async (id, employeeData) => {
   }
 };
 
-export const deleteEmployee = async (id) => {
+export const deleteEmployee = async (id, requestingUser = null) => {
   validateObjectId(id, "Employee ID");
 
   const employee = await employeeRepository.findEmployeeById(id);
@@ -316,7 +332,11 @@ export const deleteEmployee = async (id) => {
     let updatedEmployee;
 
     await session.withTransaction(async () => {
-      updatedEmployee = await employeeRepository.updateEmployeeById(id, { status: "Inactive" }, session);
+      updatedEmployee = await employeeRepository.updateEmployeeById(id, {
+        status: "Inactive",
+        modifiedBy: requestingUser?.userId,
+        modifiedAt: new Date()
+      }, session);
       await User.findByIdAndUpdate(employee.userId._id, { isActive: false }, { session });
     });
 

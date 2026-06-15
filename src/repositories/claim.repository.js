@@ -1,37 +1,14 @@
 import Employee from "../models/employee.model.js";
 import Claim from "../models/claim.model.js";
 
-const claimPopulateOptions = [
+const populateOptions = [
   {
     path: "employeeId",
     select: "employeeId fullName email department designation reportingManagerId"
   },
   {
-    path: "submittedBy",
-    select: "name email role"
-  },
-  {
-    path: "approvedBy",
-    select: "name email role"
-  },
-  {
-    path: "rejectedBy",
-    select: "name email role"
-  },
-  {
-    path: "cancelledBy",
-    select: "name email role"
-  },
-  {
-    path: "reimbursedBy",
-    select: "name email role"
-  }
-];
-
-const listClaimPopulateOptions = [
-  {
-    path: "employeeId",
-    select: "employeeId fullName email department designation reportingManagerId"
+    path: "modifiedBy",
+    select: "name"
   }
 ];
 
@@ -41,7 +18,7 @@ export const findEmployeeById = (employeeId, session = null) => {
 
 export const createClaim = async (claimData, session = null) => {
   const [claim] = await Claim.create([claimData], { session });
-  return Claim.populate(claim, claimPopulateOptions);
+  return Claim.populate(claim, populateOptions);
 };
 
 export const updateClaimById = (id, updateData, session = null) => {
@@ -49,11 +26,11 @@ export const updateClaimById = (id, updateData, session = null) => {
     new: true,
     runValidators: true,
     session
-  }).populate(claimPopulateOptions);
+  }).populate(populateOptions);
 };
 
 export const findClaimById = (id, session = null) => {
-  return Claim.findById(id).session(session).populate(claimPopulateOptions);
+  return Claim.findById(id).session(session).populate(populateOptions);
 };
 
 export const listClaims = async ({ query, page, limit }) => {
@@ -65,7 +42,7 @@ export const listClaims = async ({ query, page, limit }) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate(listClaimPopulateOptions)
+      .populate(populateOptions)
       .lean()
   ]);
 

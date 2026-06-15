@@ -207,7 +207,8 @@ export const createClaim = async (claimData, requestingUser) => {
     expenseDate,
     description: claimData.description || "",
     attachments,
-    submittedBy: requestingUser.userId
+    modifiedBy: requestingUser.userId,
+    modifiedAt: new Date()
   });
 
   return normalizeClaim(claim);
@@ -287,10 +288,8 @@ export const approveClaim = async (claimId, requestingUser) => {
 
   const updatedClaim = await claimRepository.updateClaimStatus(claimId, {
     status: "Approved",
-    approvedBy: requestingUser.userId,
-    approvedAt: new Date(),
-    rejectedBy: null,
-    rejectedAt: null
+    modifiedBy: requestingUser.userId,
+    modifiedAt: new Date()
   });
 
   return normalizeClaim(updatedClaim);
@@ -315,10 +314,8 @@ export const rejectClaim = async (claimId, requestingUser) => {
 
   const updatedClaim = await claimRepository.updateClaimStatus(claimId, {
     status: "Rejected",
-    rejectedBy: requestingUser.userId,
-    rejectedAt: new Date(),
-    approvedBy: null,
-    approvedAt: null
+    modifiedBy: requestingUser.userId,
+    modifiedAt: new Date()
   });
 
   return normalizeClaim(updatedClaim);
@@ -347,8 +344,8 @@ export const cancelClaim = async (claimId, requestingUser) => {
 
   const updatedClaim = await claimRepository.updateClaimStatus(claimId, {
     status: "Cancelled",
-    cancelledBy: requestingUser.userId,
-    cancelledAt: new Date()
+    modifiedBy: requestingUser.userId,
+    modifiedAt: new Date()
   });
 
   return normalizeClaim(updatedClaim);
@@ -373,8 +370,8 @@ export const reimburseClaim = async (claimId, requestingUser) => {
 
   const updatedClaim = await claimRepository.updateClaimStatus(claimId, {
     status: "Reimbursed",
-    reimbursedBy: requestingUser.userId,
-    reimbursedAt: new Date()
+    modifiedBy: requestingUser.userId,
+    modifiedAt: new Date()
   });
 
   return normalizeClaim(updatedClaim);

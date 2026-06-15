@@ -95,6 +95,15 @@ const employeeSchema = new mongoose.Schema(
     aadhaarNumber: {
       type: String,
       trim: true
+    },
+    modifiedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null
+    },
+    modifiedAt: {
+      type: Date,
+      default: null
     }
   },
   {

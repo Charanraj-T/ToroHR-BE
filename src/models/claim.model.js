@@ -64,44 +64,12 @@ const claimSchema = new mongoose.Schema(
       enum: CLAIM_STATUSES,
       default: "Pending"
     },
-    submittedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true
-    },
-    approvedBy: {
+    modifiedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       default: null
     },
-    approvedAt: {
-      type: Date,
-      default: null
-    },
-    rejectedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null
-    },
-    rejectedAt: {
-      type: Date,
-      default: null
-    },
-    cancelledBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null
-    },
-    cancelledAt: {
-      type: Date,
-      default: null
-    },
-    reimbursedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null
-    },
-    reimbursedAt: {
+    modifiedAt: {
       type: Date,
       default: null
     }

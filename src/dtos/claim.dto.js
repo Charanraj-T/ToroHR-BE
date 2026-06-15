@@ -19,6 +19,10 @@ const normalizeUserRef = (user) => {
     return null;
   }
 
+  if (typeof user._id === 'undefined') {
+    return null;
+  }
+
   return {
     id: user._id,
     name: user.name,
@@ -45,6 +49,8 @@ export const normalizeClaim = (claim, { includeAttachmentData = false } = {}) =>
     return null;
   }
 
+  const mod = normalizeUserRef(claim.modifiedBy);
+
   const normalized = {
     id: claim._id,
     employee: normalizeEmployeeForClaim(claim.employeeId),
@@ -61,15 +67,8 @@ export const normalizeClaim = (claim, { includeAttachmentData = false } = {}) =>
           }
         : normalizeAttachmentMetadata(attachment)
     ),
-    submittedBy: normalizeUserRef(claim.submittedBy),
-    approvedBy: normalizeUserRef(claim.approvedBy),
-    approvedAt: claim.approvedAt,
-    rejectedBy: normalizeUserRef(claim.rejectedBy),
-    rejectedAt: claim.rejectedAt,
-    cancelledBy: normalizeUserRef(claim.cancelledBy),
-    cancelledAt: claim.cancelledAt,
-    reimbursedBy: normalizeUserRef(claim.reimbursedBy),
-    reimbursedAt: claim.reimbursedAt,
+    modifiedBy: mod ? { id: mod.id, name: mod.name } : null,
+    modifiedAt: claim.modifiedAt || null,
     createdAt: claim.createdAt,
     updatedAt: claim.updatedAt
   };

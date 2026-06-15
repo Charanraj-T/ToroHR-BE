@@ -4,6 +4,7 @@ export const createEmployee = async (req, res, next) => {
   try {
     const employee = await employeeService.createEmployee(req.body, req.user);
 
+
     res.status(201).json({
       success: true,
       message: "Employee created successfully",
@@ -49,7 +50,7 @@ export const getEmployeeById = async (req, res, next) => {
 
 export const updateEmployee = async (req, res, next) => {
   try {
-    const employee = await employeeService.updateEmployee(req.params.id, req.body);
+    const employee = await employeeService.updateEmployee(req.params.id, req.body, req.user);
 
     res.status(200).json({
       success: true,
@@ -65,7 +66,7 @@ export const updateEmployee = async (req, res, next) => {
 
 export const deleteEmployee = async (req, res, next) => {
   try {
-    const employee = await employeeService.deleteEmployee(req.params.id);
+    const employee = await employeeService.deleteEmployee(req.params.id, req.user);
 
     res.status(200).json({
       success: true,

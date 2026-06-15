@@ -13,6 +13,10 @@ const employeePopulateOptions = [
       path: "userId",
       select: "role isActive"
     }
+  },
+  {
+    path: "modifiedBy",
+    select: "name"
   }
 ];
 
