@@ -1,5 +1,6 @@
 import express from "express";
 import * as attendanceController from "../controllers/attendance.controller.js";
+import * as ipWhitelistController from "../controllers/ipWhitelist.controller.js";
 import { authorizeRoles, verifyToken, blockSuperAdmin } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
@@ -53,6 +54,24 @@ router.get(
 );
 router.get("/export/csv", authorizeRoles("Admin", "Manager", "Employee"), attendanceController.exportCsv);
 router.get("/", authorizeRoles("Admin", "Manager", "Employee"), attendanceController.getAttendance);
+
+// IP whitelist management (must be before /:id to avoid catch-all match)
+router.get(
+  "/ip-whitelist",
+  authorizeRoles("Admin"),
+  ipWhitelistController.getAllowedIps,
+);
+router.post(
+  "/ip-whitelist",
+  authorizeRoles("Admin"),
+  ipWhitelistController.addIpRange,
+);
+router.delete(
+  "/ip-whitelist/:id",
+  authorizeRoles("Admin"),
+  ipWhitelistController.removeIpRange,
+);
+
 router.get("/:id", authorizeRoles("Admin", "Manager", "Employee"), attendanceController.getAttendanceById);
 router.delete(
   "/:id",

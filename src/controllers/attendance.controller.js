@@ -20,7 +20,7 @@ export const checkIn = async (req, res, next) => {
       return next(err);
     }
 
-    const result = await attendanceService.checkIn(req.user.employeeId);
+    const result = await attendanceService.checkIn(req.user.employeeId, req.ip);
 
     res.status(200).json({
       success: true,

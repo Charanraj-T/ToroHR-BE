@@ -25,6 +25,7 @@ const PORT = process.env.PORT || 5000;
 const app = express();
 
 app.use(cors());
+app.set("trust proxy", true);
 app.use(express.json({ limit: "15mb" }));
 
 app.get("/", (req, res) => {

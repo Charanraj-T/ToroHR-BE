@@ -11,9 +11,11 @@ import {
   isFutureDate,
   checkIfLate,
 } from "../utils/attendance.util.js";
+import { isIpWhitelisted } from "../utils/ip.util.js";
+import { getAllowedIps } from "./ipWhitelist.service.js";
 import { normalizeAttendance, normalizeAttendanceList } from "../dtos/attendance.dto.js";
 
-export const checkIn = async (employeeId) => {
+export const checkIn = async (employeeId, clientIp = null) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -29,6 +31,16 @@ export const checkIn = async (employeeId) => {
       const error = new Error("Admin cannot mark attendance");
       error.statusCode = 403;
       throw error;
+    }
+
+    if (clientIp) {
+      const allowedRanges = await getAllowedIps(employee.userId?.tenantId);
+      const rangeList = allowedRanges.map((r) => r.ipRange);
+      if (!isIpWhitelisted(clientIp, rangeList)) {
+        const error = new Error("Check-in allowed only from office network");
+        error.statusCode = 403;
+        throw error;
+      }
     }
 
     const now = new Date();
