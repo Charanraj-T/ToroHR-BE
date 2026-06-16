@@ -3,6 +3,7 @@ import User from "../models/user.model.js";
 import { validateCreateEmployeeDto, validateUpdateEmployeeDto } from "../dtos/employee.dto.js";
 import * as employeeRepository from "../repositories/employee.repository.js";
 import { getTenantUserIds } from "../utils/tenant.util.js";
+import { processFileBuffer } from "../utils/file.util.js";
 
 const normalizeModifiedBy = (modifiedBy) => {
   if (!modifiedBy) return null;
@@ -12,7 +13,20 @@ const normalizeModifiedBy = (modifiedBy) => {
   return { id: modifiedBy.toString(), name: null };
 };
 
-const normalizeEmployee = (employee, { includeSensitive = true } = {}) => {
+const normalizeDocumentMetadata = (document) => {
+  if (!document) {
+    return null;
+  }
+
+  return {
+    id: document._id,
+    fileName: document.fileName,
+    mimeType: document.mimeType,
+    size: document.size
+  };
+};
+
+const normalizeEmployee = (employee, { includeSensitive = true, includeDocuments = false } = {}) => {
   const data = {
     id: employee._id,
     user: employee.userId,
@@ -31,7 +45,15 @@ const normalizeEmployee = (employee, { includeSensitive = true } = {}) => {
     modifiedBy: normalizeModifiedBy(employee.modifiedBy),
     modifiedAt: employee.modifiedAt,
     createdAt: employee.createdAt,
-    updatedAt: employee.updatedAt
+    updatedAt: employee.updatedAt,
+    documents: (employee.documents || []).map((doc) =>
+      includeDocuments
+        ? {
+            ...normalizeDocumentMetadata(doc),
+            data: doc.data?.toString("base64") || null
+          }
+        : normalizeDocumentMetadata(doc)
+    )
   };
 
   if (includeSensitive) {
@@ -147,6 +169,10 @@ export const createEmployee = async (employeeData, requestingUser = null) => {
         { session }
       );
 
+      const documents = (value.documents || []).map(
+        (doc) => processFileBuffer(doc)
+      );
+
       const [employee] = await employeeRepository.createEmployee(
         {
           userId: user._id,
@@ -168,6 +194,7 @@ export const createEmployee = async (employeeData, requestingUser = null) => {
           bankName: value.bankName,
           panNumber: value.panNumber,
           aadhaarNumber: value.aadhaarNumber,
+          documents,
           modifiedBy: requestingUser?.userId || user._id,
           modifiedAt: new Date()
         },
@@ -178,7 +205,7 @@ export const createEmployee = async (employeeData, requestingUser = null) => {
     });
 
     const employee = await employeeRepository.findEmployeeById(createdEmployee._id);
-    return normalizeEmployee(employee);
+    return normalizeEmployee(employee, { includeDocuments: true });
   } finally {
     session.endSession();
   }
@@ -243,7 +270,7 @@ export const getEmployeeById = async (id) => {
     throwError("Employee not found", 404);
   }
 
-  return normalizeEmployee(employee);
+  return normalizeEmployee(employee, { includeDocuments: true });
 };
 
 export const updateEmployee = async (id, employeeData, requestingUser = null) => {
@@ -279,6 +306,27 @@ export const updateEmployee = async (id, employeeData, requestingUser = null) =>
       const employeeUpdates = { ...value };
       delete employeeUpdates.password;
 
+      if (value.documents) {
+        const currentDocs = employee.documents || [];
+        const processed = [];
+
+        for (const doc of value.documents) {
+          if (doc.id) {
+            const existing = currentDocs.find(
+              (d) => d._id.toString() === doc.id
+            );
+
+            if (existing) {
+              processed.push(existing);
+            }
+          } else {
+            processed.push(processFileBuffer(doc));
+          }
+        }
+
+        employeeUpdates.documents = processed;
+      }
+
       if (value.email) {
         employeeUpdates.email = value.email.toLowerCase();
       }
@@ -310,7 +358,7 @@ export const updateEmployee = async (id, employeeData, requestingUser = null) =>
       }
     });
 
-    return normalizeEmployee(updatedEmployee);
+    return normalizeEmployee(updatedEmployee, { includeDocuments: true });
   } finally {
     session.endSession();
   }

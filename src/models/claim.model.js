@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-import { ALLOWED_MIME_TYPES, CLAIM_STATUSES, MAX_ATTACHMENT_SIZE } from "../utils/claim.util.js";
+import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE } from "../utils/file.util.js";
+import { CLAIM_STATUSES } from "../utils/claim.util.js";
 
 const attachmentSchema = new mongoose.Schema(
   {
@@ -17,7 +18,7 @@ const attachmentSchema = new mongoose.Schema(
       type: Number,
       required: [true, "File size is required"],
       min: [1, "File size must be greater than 0"],
-      max: [MAX_ATTACHMENT_SIZE, "File exceeds maximum allowed size"]
+      max: [MAX_FILE_SIZE, "File exceeds maximum allowed size"]
     },
     data: {
       type: Buffer,

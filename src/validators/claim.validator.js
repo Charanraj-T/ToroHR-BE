@@ -1,6 +1,6 @@
 import Joi from "joi";
+import { ALLOWED_MIME_TYPES } from "../utils/file.util.js";
 import {
-  ALLOWED_MIME_TYPES,
   CLAIM_STATUSES,
   MAX_ATTACHMENTS
 } from "../utils/claim.util.js";

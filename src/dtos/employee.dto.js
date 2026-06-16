@@ -1,4 +1,12 @@
 import Joi from "joi";
+import { ALLOWED_MIME_TYPES } from "../utils/file.util.js";
+
+const documentItemSchema = Joi.object({
+  id: Joi.string().hex().length(24),
+  fileName: Joi.string().trim().min(1).max(255),
+  mimeType: Joi.string().valid(...ALLOWED_MIME_TYPES),
+  data: Joi.string().base64({ paddingRequired: false })
+});
 
 const createEmployeeSchema = Joi.object({
   fullName: Joi.string().trim().required(),
@@ -18,7 +26,8 @@ const createEmployeeSchema = Joi.object({
   branchName: Joi.string().trim().allow("", null),
   bankName: Joi.string().trim().allow("", null),
   panNumber: Joi.string().trim().allow("", null),
-  aadhaarNumber: Joi.string().trim().allow("", null)
+  aadhaarNumber: Joi.string().trim().allow("", null),
+  documents: Joi.array().items(documentItemSchema).default([])
 });
 
 const updateEmployeeSchema = Joi.object({
@@ -39,7 +48,8 @@ const updateEmployeeSchema = Joi.object({
   branchName: Joi.string().trim().allow("", null),
   bankName: Joi.string().trim().allow("", null),
   panNumber: Joi.string().trim().allow("", null),
-  aadhaarNumber: Joi.string().trim().allow("", null)
+  aadhaarNumber: Joi.string().trim().allow("", null),
+  documents: Joi.array().items(documentItemSchema)
 }).min(1);
 
 const validateDto = (schema, data) => {
