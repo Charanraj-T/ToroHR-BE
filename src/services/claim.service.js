@@ -232,7 +232,17 @@ export const createClaim = async (claimData, requestingUser) => {
 
 export const getClaims = async (filters, requestingUser) => {
   const { page, limit } = parsePageLimit(filters);
-  const visibilityQuery = await buildVisibilityQuery(requestingUser);
+  let visibilityQuery = await buildVisibilityQuery(requestingUser);
+
+  if (filters.filter === "my") {
+    visibilityQuery = { employeeId: new mongoose.Types.ObjectId(requestingUser.employeeId) };
+  } else if (filters.filter === "team" && requestingUser.role === "Manager") {
+    const teamIds = await claimRepository.getTeamEmployeeIds(requestingUser.employeeId);
+    visibilityQuery = {
+      employeeId: { $in: teamIds }
+    };
+  }
+
   const filterQuery = await applyFilters({}, filters);
   const query = mergeEmployeeVisibility(visibilityQuery, filterQuery);
 

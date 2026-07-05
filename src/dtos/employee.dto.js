@@ -14,7 +14,14 @@ const createEmployeeSchema = Joi.object({
   phoneNumber: Joi.string().trim().length(10).pattern(/^[6-9]\d{9}$/).required(),
   password: Joi.string().min(6).required(),
   role: Joi.string().valid("Manager", "Employee").required(),
-  dateOfBirth: Joi.date().required(),
+  dateOfBirth: Joi.date().max("now").custom((value, helpers) => {
+    const minDate = new Date();
+    minDate.setFullYear(minDate.getFullYear() - 18);
+    if (value > minDate) {
+      return helpers.message("Enter valid age");
+    }
+    return value;
+  }).required(),
   joiningDate: Joi.date().required(),
   designation: Joi.string().trim().required(),
   department: Joi.string().trim().required(),
@@ -51,7 +58,14 @@ const updateEmployeeSchema = Joi.object({
   phoneNumber: Joi.string().trim().length(10).pattern(/^[6-9]\d{9}$/),
   password: Joi.string().min(6),
   role: Joi.string().valid("Manager", "Employee"),
-  dateOfBirth: Joi.date(),
+  dateOfBirth: Joi.date().max("now").custom((value, helpers) => {
+    const minDate = new Date();
+    minDate.setFullYear(minDate.getFullYear() - 18);
+    if (value > minDate) {
+      return helpers.message("Enter valid age");
+    }
+    return value;
+  }),
   joiningDate: Joi.date(),
   designation: Joi.string().trim(),
   department: Joi.string().trim(),

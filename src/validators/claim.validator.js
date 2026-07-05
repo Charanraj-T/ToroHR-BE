@@ -48,6 +48,7 @@ export const updateClaimSchema = Joi.object({
 export const listClaimSchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
+  filter: Joi.string().valid("my", "team").allow("").empty(""),
   status: Joi.string()
     .valid(...CLAIM_STATUSES)
     .allow("")

@@ -1,6 +1,12 @@
 import Joi from "joi";
+import { getTodayIST } from "../utils/date.util.js";
 
 const dateStringRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+const getTodayStr = () => {
+  const d = getTodayIST();
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+};
 
 export const checkInSchema = Joi.object({});
 
@@ -11,6 +17,12 @@ export const markAttendanceSchema = Joi.object({
   date: Joi.string()
     .pattern(dateStringRegex)
     .required()
+    .custom((value, helpers) => {
+      if (value > getTodayStr()) {
+        return helpers.message("Cannot mark attendance for a future date");
+      }
+      return value;
+    })
     .messages({
       "string.pattern.base": "Date must be in YYYY-MM-DD format"
     }),
