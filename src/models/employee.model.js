@@ -38,20 +38,24 @@ const employeeSchema = new mongoose.Schema(
     fullName: {
       type: String,
       required: [true, "Full name is required"],
-      trim: true
+      trim: true,
+      maxlength: [60, "Full name cannot exceed 60 characters"]
     },
     email: {
       type: String,
       required: [true, "Email is required"],
       unique: true,
       lowercase: true,
-      trim: true
+      trim: true,
+      maxlength: [254, "Email cannot exceed 254 characters"]
     },
     phoneNumber: {
       type: String,
       required: [true, "Phone number is required"],
       unique: true,
-      trim: true
+      trim: true,
+      maxlength: [10, "Phone number must be 10 digits"],
+      match: [/^[6-9]\d{9}$/, "Phone number must be 10 digits"]
     },
     dateOfBirth: {
       type: Date,
@@ -123,6 +127,27 @@ const employeeSchema = new mongoose.Schema(
       type: String,
       trim: true
     },
+    nationality: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+    address: {
+      line1: { type: String, trim: true, default: "" },
+      line2: { type: String, trim: true, default: "" },
+      city: { type: String, trim: true, default: "" },
+      state: { type: String, trim: true, default: "" },
+      country: { type: String, trim: true, default: "" },
+      postalCode: { type: String, trim: true, default: "" }
+    },
+    education: [
+      {
+        degree: { type: String, trim: true, default: "" },
+        duration: { type: String, trim: true, default: "" },
+        institute: { type: String, trim: true, default: "" },
+        grade: { type: String, trim: true, default: "" }
+      }
+    ],
     documents: {
       type: [documentSchema],
       default: []

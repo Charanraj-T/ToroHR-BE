@@ -14,7 +14,7 @@ export const markAttendanceSchema = Joi.object({
     .messages({
       "string.pattern.base": "Date must be in YYYY-MM-DD format"
     }),
-  status: Joi.string().valid("Present", "Absent", "Leave", "Weekend", "Half-day").required(),
+  status: Joi.string().valid("Present", "Absent", "Leave", "Weekend", "Half-day", "Holiday").required(),
   checkInTime: Joi.string().allow(null, ""),
   checkOutTime: Joi.string().allow(null, ""),
 
@@ -24,7 +24,7 @@ export const markAttendanceSchema = Joi.object({
 });
 
 export const updateAttendanceSchema = Joi.object({
-  status: Joi.string().valid("Present", "Absent", "Leave", "Weekend", "Half-day"),
+  status: Joi.string().valid("Present", "Absent", "Leave", "Weekend", "Half-day", "Holiday"),
   checkInTime: Joi.string().allow(null, ""),
   checkOutTime: Joi.string().allow(null, ""),
 
@@ -34,7 +34,7 @@ export const updateAttendanceSchema = Joi.object({
 export const getAttendanceFiltersSchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
-  status: Joi.string().valid("Present", "Absent", "Leave", "Weekend", "Half-day").allow(""),
+  status: Joi.string().valid("Present", "Absent", "Leave", "Weekend", "Half-day", "Holiday").allow(""),
   department: Joi.string().allow(""),
   managerId: Joi.string().hex().length(24).allow(""),
   startDate: Joi.string().pattern(dateStringRegex).allow(""),
@@ -48,7 +48,7 @@ export const exportAttendanceSchema = Joi.object({
   employeeId: Joi.string().hex().length(24),
   department: Joi.string(),
   managerId: Joi.string().hex().length(24),
-  status: Joi.string().valid("Present", "Absent", "Leave", "Weekend", "Half-day")
+  status: Joi.string().valid("Present", "Absent", "Leave", "Weekend", "Half-day", "Holiday")
 });
 
 // Normalize attendance response

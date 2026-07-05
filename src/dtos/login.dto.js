@@ -1,8 +1,9 @@
 import Joi from "joi";
 
 const loginSchema = Joi.object({
-  identifier: Joi.string().trim().required().messages({
+  identifier: Joi.string().trim().max(254).required().messages({
     "string.empty": "Email or phone number is required",
+    "string.max": "Identifier must not exceed 254 characters",
     "any.required": "Email or phone number is required"
   }),
   password: Joi.string().required().messages({

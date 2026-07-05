@@ -10,8 +10,10 @@ export const createTenantSchema = Joi.object({
     "string.email": "Company email must be a valid email",
     "any.required": "Company email is required",
   }),
-  companyPhone: Joi.string().trim().max(20).required().messages({
+  companyPhone: Joi.string().trim().length(10).pattern(/^[6-9]\d{9}$/).required().messages({
     "string.empty": "Company phone is required",
+    "string.length": "Company phone must be exactly 10 digits",
+    "string.pattern.base": "Company phone must be 10 digits",
     "any.required": "Company phone is required",
   }),
   status: Joi.string()
@@ -29,8 +31,10 @@ export const updateTenantSchema = Joi.object({
   companyEmail: Joi.string().trim().email().max(200).messages({
     "string.email": "Company email must be a valid email",
   }),
-  companyPhone: Joi.string().trim().max(20).messages({
+  companyPhone: Joi.string().trim().length(10).pattern(/^[6-9]\d{9}$/).messages({
     "string.empty": "Company phone cannot be empty",
+    "string.length": "Company phone must be exactly 10 digits",
+    "string.pattern.base": "Company phone must be 10 digits",
   }),
   status: Joi.string().valid("Active", "Inactive").messages({
     "any.only": "Status must be Active or Inactive",
@@ -40,13 +44,15 @@ export const updateTenantSchema = Joi.object({
 });
 
 export const createTenantAdminSchema = Joi.object({
-  name: Joi.string().trim().required().messages({
+  name: Joi.string().trim().max(60).required().messages({
     "string.empty": "Name is required",
+    "string.max": "Name cannot exceed 60 characters",
     "any.required": "Name is required",
   }),
-  email: Joi.string().trim().email().required().messages({
+  email: Joi.string().trim().email().max(254).required().messages({
     "string.empty": "Email is required",
     "string.email": "Email must be a valid email",
+    "string.max": "Email cannot exceed 254 characters",
     "any.required": "Email is required",
   }),
   password: Joi.string().min(6).required().messages({
@@ -57,8 +63,9 @@ export const createTenantAdminSchema = Joi.object({
 });
 
 export const updateTenantAdminSchema = Joi.object({
-  name: Joi.string().trim().messages({
+  name: Joi.string().trim().max(60).messages({
     "string.empty": "Name cannot be empty",
+    "string.max": "Name cannot exceed 60 characters",
   }),
   isActive: Joi.boolean(),
   password: Joi.string().min(6).max(128).messages({

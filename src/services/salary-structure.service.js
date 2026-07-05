@@ -166,6 +166,9 @@ export const updateSalaryStructure = async (id, data, requestingUser) => {
     updatedBy: requestingUser.userId
   };
 
+  if (data.employmentType !== undefined) updateData.employmentType = data.employmentType;
+  if (data.effectiveMonth !== undefined) updateData.effectiveMonth = data.effectiveMonth;
+  if (data.effectiveYear !== undefined) updateData.effectiveYear = data.effectiveYear;
   if (data.basic !== undefined) updateData.basic = data.basic;
   if (data.houseRentAllowance !== undefined) updateData.houseRentAllowance = data.houseRentAllowance;
   if (data.specialAllowance !== undefined) updateData.specialAllowance = data.specialAllowance;

@@ -6,20 +6,24 @@ const userSchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, "Name is required"],
-      trim: true
+      trim: true,
+      maxlength: [60, "Name cannot exceed 60 characters"]
     },
     email: {
       type: String,
       required: [true, "Email is required"],
       unique: true,
       lowercase: true,
-      trim: true
+      trim: true,
+      maxlength: [254, "Email cannot exceed 254 characters"]
     },
     phoneNumber: {
       type: String,
       unique: true,
       sparse: true,
-      trim: true
+      trim: true,
+      maxlength: [10, "Phone number must be 10 digits"],
+      match: [/^[6-9]\d{9}$/, "Phone number must be 10 digits"]
     },
     password: {
       type: String,

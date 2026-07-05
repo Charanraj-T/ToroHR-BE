@@ -19,7 +19,8 @@ const tenantSchema = new mongoose.Schema(
       type: String,
       required: [true, "Company phone is required"],
       trim: true,
-      maxlength: [20, "Company phone cannot exceed 20 characters"],
+      maxlength: [10, "Company phone must be 10 digits"],
+      match: [/^[6-9]\d{9}$/, "Company phone must be 10 digits"],
     },
     status: {
       type: String,

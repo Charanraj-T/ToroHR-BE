@@ -34,16 +34,16 @@ export const createClaimSchema = Joi.object({
 });
 
 export const updateClaimSchema = Joi.object({
-  name: Joi.string().trim().min(1).max(200).required(),
-  amount: Joi.number().positive().required().messages({
+  name: Joi.string().trim().min(1).max(200),
+  amount: Joi.number().positive().messages({
     "number.positive": "Amount must be greater than 0"
   }),
-  expenseDate: Joi.string().pattern(dateStringRegex).required().messages({
+  expenseDate: Joi.string().pattern(dateStringRegex).messages({
     "string.pattern.base": "Expense date must be in YYYY-MM-DD format"
   }),
   description: Joi.string().trim().max(1000).allow("", null).default(""),
   attachments: Joi.array().items(attachmentSchema).max(MAX_ATTACHMENTS).default([])
-});
+}).min(1);
 
 export const listClaimSchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),

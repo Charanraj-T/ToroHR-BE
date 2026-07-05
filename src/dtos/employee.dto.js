@@ -9,9 +9,9 @@ const documentItemSchema = Joi.object({
 });
 
 const createEmployeeSchema = Joi.object({
-  fullName: Joi.string().trim().required(),
-  email: Joi.string().email().required(),
-  phoneNumber: Joi.string().trim().required(),
+  fullName: Joi.string().trim().max(60).required(),
+  email: Joi.string().email().max(254).required(),
+  phoneNumber: Joi.string().trim().length(10).pattern(/^[6-9]\d{9}$/).required(),
   password: Joi.string().min(6).required(),
   role: Joi.string().valid("Manager", "Employee").required(),
   dateOfBirth: Joi.date().required(),
@@ -27,13 +27,28 @@ const createEmployeeSchema = Joi.object({
   bankName: Joi.string().trim().allow("", null),
   panNumber: Joi.string().trim().allow("", null),
   aadhaarNumber: Joi.string().trim().allow("", null),
+  nationality: Joi.string().trim().allow("", null),
+  address: Joi.object({
+    line1: Joi.string().trim().allow("", null),
+    line2: Joi.string().trim().allow("", null),
+    city: Joi.string().trim().allow("", null),
+    state: Joi.string().trim().allow("", null),
+    country: Joi.string().trim().allow("", null),
+    postalCode: Joi.string().trim().allow("", null)
+  }).allow(null),
+  education: Joi.array().items(Joi.object({
+    degree: Joi.string().trim().allow("", null),
+    duration: Joi.string().trim().allow("", null),
+    institute: Joi.string().trim().allow("", null),
+    grade: Joi.string().trim().allow("", null)
+  })),
   documents: Joi.array().items(documentItemSchema).default([])
 });
 
 const updateEmployeeSchema = Joi.object({
-  fullName: Joi.string().trim(),
-  email: Joi.string().email(),
-  phoneNumber: Joi.string().trim(),
+  fullName: Joi.string().trim().max(60),
+  email: Joi.string().email().max(254),
+  phoneNumber: Joi.string().trim().length(10).pattern(/^[6-9]\d{9}$/),
   password: Joi.string().min(6),
   role: Joi.string().valid("Manager", "Employee"),
   dateOfBirth: Joi.date(),
@@ -49,6 +64,21 @@ const updateEmployeeSchema = Joi.object({
   bankName: Joi.string().trim().allow("", null),
   panNumber: Joi.string().trim().allow("", null),
   aadhaarNumber: Joi.string().trim().allow("", null),
+  nationality: Joi.string().trim().allow("", null),
+  address: Joi.object({
+    line1: Joi.string().trim().allow("", null),
+    line2: Joi.string().trim().allow("", null),
+    city: Joi.string().trim().allow("", null),
+    state: Joi.string().trim().allow("", null),
+    country: Joi.string().trim().allow("", null),
+    postalCode: Joi.string().trim().allow("", null)
+  }).allow(null),
+  education: Joi.array().items(Joi.object({
+    degree: Joi.string().trim().allow("", null),
+    duration: Joi.string().trim().allow("", null),
+    institute: Joi.string().trim().allow("", null),
+    grade: Joi.string().trim().allow("", null)
+  })),
   documents: Joi.array().items(documentItemSchema)
 }).min(1);
 

@@ -136,7 +136,7 @@ export const listLeaves = async ({ query, page, limit }) => {
 
   const [total, data] = await Promise.all([
     Leave.countDocuments(query),
-    Leave.find(query, { rejectionReason: 0, cancellationReason: 0 })
+    Leave.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
