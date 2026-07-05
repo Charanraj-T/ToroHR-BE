@@ -118,6 +118,16 @@ export const getStats = async (managerId = null, tenantId = null) => {
           $sum: {
             $cond: [{ $eq: ["$status", "Inactive"] }, 1, 0]
           }
+        },
+        managers: {
+          $sum: {
+            $cond: [{ $eq: ["$role", "Manager"] }, 1, 0]
+          }
+        },
+        employees: {
+          $sum: {
+            $cond: [{ $eq: ["$role", "Employee"] }, 1, 0]
+          }
         }
       }
     },
@@ -126,7 +136,9 @@ export const getStats = async (managerId = null, tenantId = null) => {
         _id: 0,
         total: 1,
         active: 1,
-        inactive: 1
+        inactive: 1,
+        managers: 1,
+        employees: 1
       }
     }
   ]);
@@ -134,6 +146,8 @@ export const getStats = async (managerId = null, tenantId = null) => {
   return stats || {
     total: 0,
     active: 0,
-    inactive: 0
+    inactive: 0,
+    managers: 0,
+    employees: 0
   };
 };

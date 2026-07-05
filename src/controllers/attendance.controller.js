@@ -268,13 +268,6 @@ export const exportCsv = async (req, res, next) => {
 
     const employees = await attendanceService.getAttendanceForExport(startDate, endDate, filters);
 
-    if (!employees || employees.length === 0) {
-      return res.status(200).json({
-        success: true,
-        message: "No records found for export"
-      });
-    }
-
     const csvContent = generateCsvContent(employees);
     const [y, m] = startDate.split("-").map(Number);
     const filename = generateCsvFilename(m, y);
