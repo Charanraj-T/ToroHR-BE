@@ -21,11 +21,16 @@ const companySettingsSchema = new mongoose.Schema(
       maxlength: [200, "Company email cannot exceed 200 characters"],
       default: "",
     },
+    companyCountryCode: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     companyPhone: {
       type: String,
       trim: true,
-      maxlength: [10, "Company phone must be 10 digits"],
-      match: [/^[6-9]\d{9}$/, "Company phone must be 10 digits"],
+      maxlength: [15, "Invalid phone number"],
+      match: [/^\d{5,15}$/, "Invalid phone number"],
       default: "",
     },
     companyLogo: {

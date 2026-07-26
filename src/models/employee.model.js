@@ -49,13 +49,18 @@ const employeeSchema = new mongoose.Schema(
       trim: true,
       maxlength: [254, "Email cannot exceed 254 characters"]
     },
+    countryCode: {
+      type: String,
+      trim: true,
+      default: ""
+    },
     phoneNumber: {
       type: String,
       required: [true, "Phone number is required"],
       unique: true,
       trim: true,
-      maxlength: [10, "Phone number must be 10 digits"],
-      match: [/^[6-9]\d{9}$/, "Phone number must be 10 digits"]
+      maxlength: [15, "Invalid phone number"],
+      match: [/^\d{5,15}$/, "Invalid phone number"]
     },
     dateOfBirth: {
       type: Date,
@@ -100,6 +105,10 @@ const employeeSchema = new mongoose.Schema(
       type: String,
       enum: ["Active", "Inactive"],
       default: "Active"
+    },
+    payrollAccess: {
+      type: Boolean,
+      default: false
     },
     accountNumber: {
       type: String,

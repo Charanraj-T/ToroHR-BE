@@ -17,13 +17,18 @@ const userSchema = new mongoose.Schema(
       trim: true,
       maxlength: [254, "Email cannot exceed 254 characters"]
     },
+    countryCode: {
+      type: String,
+      trim: true,
+      default: ""
+    },
     phoneNumber: {
       type: String,
       unique: true,
       sparse: true,
       trim: true,
-      maxlength: [10, "Phone number must be 10 digits"],
-      match: [/^[6-9]\d{9}$/, "Phone number must be 10 digits"]
+      maxlength: [15, "Invalid phone number"],
+      match: [/^\d{5,15}$/, "Invalid phone number"]
     },
     password: {
       type: String,

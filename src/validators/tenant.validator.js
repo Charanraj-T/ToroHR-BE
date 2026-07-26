@@ -10,10 +10,9 @@ export const createTenantSchema = Joi.object({
     "string.email": "Company email must be a valid email",
     "any.required": "Company email is required",
   }),
-  companyPhone: Joi.string().trim().length(10).pattern(/^[6-9]\d{9}$/).required().messages({
+  companyCountryCode: Joi.string().trim().max(6).allow("").default(""),
+  companyPhone: Joi.string().trim().min(5).max(15).pattern(/^\d{5,15}$/).required().messages({
     "string.empty": "Company phone is required",
-    "string.length": "Company phone must be exactly 10 digits",
-    "string.pattern.base": "Company phone must be 10 digits",
     "any.required": "Company phone is required",
   }),
   status: Joi.string()
@@ -31,11 +30,8 @@ export const updateTenantSchema = Joi.object({
   companyEmail: Joi.string().trim().email().max(200).messages({
     "string.email": "Company email must be a valid email",
   }),
-  companyPhone: Joi.string().trim().length(10).pattern(/^[6-9]\d{9}$/).messages({
-    "string.empty": "Company phone cannot be empty",
-    "string.length": "Company phone must be exactly 10 digits",
-    "string.pattern.base": "Company phone must be 10 digits",
-  }),
+  companyCountryCode: Joi.string().trim().max(6).allow(""),
+  companyPhone: Joi.string().trim().min(5).max(15).pattern(/^\d{5,15}$/),
   status: Joi.string().valid("Active", "Inactive").messages({
     "any.only": "Status must be Active or Inactive",
   }),

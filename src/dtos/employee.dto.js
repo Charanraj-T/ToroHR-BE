@@ -11,7 +11,8 @@ const documentItemSchema = Joi.object({
 const createEmployeeSchema = Joi.object({
   fullName: Joi.string().trim().max(60).required(),
   email: Joi.string().email().max(254).required(),
-  phoneNumber: Joi.string().trim().length(10).pattern(/^[6-9]\d{9}$/).required(),
+  countryCode: Joi.string().trim().max(6).allow("").default(""),
+  phoneNumber: Joi.string().trim().min(5).max(15).pattern(/^\d{5,15}$/).required(),
   password: Joi.string().min(6).required(),
   role: Joi.string().valid("Manager", "Employee").required(),
   dateOfBirth: Joi.date().max("now").custom((value, helpers) => {
@@ -55,7 +56,8 @@ const createEmployeeSchema = Joi.object({
 const updateEmployeeSchema = Joi.object({
   fullName: Joi.string().trim().max(60),
   email: Joi.string().email().max(254),
-  phoneNumber: Joi.string().trim().length(10).pattern(/^[6-9]\d{9}$/),
+  countryCode: Joi.string().trim().max(6).allow(""),
+  phoneNumber: Joi.string().trim().min(5).max(15).pattern(/^\d{5,15}$/),
   password: Joi.string().min(6),
   role: Joi.string().valid("Manager", "Employee"),
   dateOfBirth: Joi.date().max("now").custom((value, helpers) => {
