@@ -73,7 +73,7 @@ export const updateEmployeeById = (id, updateData, session) => {
 
 export const listEmployees = async ({ query, page, limit }) => {
   const skip = (page - 1) * limit;
-  const sort = query.$text ? { score: { $meta: "textScore" }, createdAt: -1 } : { createdAt: -1 };
+  const sort = query.$text ? { score: { $meta: "textScore" }, fullName: 1 } : { fullName: 1 };
 
   const [total, data] = await Promise.all([
     Employee.countDocuments(query),
@@ -91,6 +91,14 @@ export const listEmployees = async ({ query, page, limit }) => {
     totalPages: Math.ceil(total / limit) || 1,
     data
   };
+};
+
+export const togglePayrollAccess = (employeeId) => {
+  return Employee.findByIdAndUpdate(
+    employeeId,
+    [{ $set: { payrollAccess: { $not: "$payrollAccess" } } }],
+    { new: true, runValidators: true }
+  ).select("employeeId fullName payrollAccess");
 };
 
 export const getStats = async (managerId = null, tenantId = null) => {

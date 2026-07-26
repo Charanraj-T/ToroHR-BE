@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import User from "../models/user.model.js";
+import Employee from "../models/employee.model.js";
 import { validateCreateEmployeeDto, validateUpdateEmployeeDto } from "../dtos/employee.dto.js";
 import * as employeeRepository from "../repositories/employee.repository.js";
 import { getTenantUserIds } from "../utils/tenant.util.js";
@@ -32,6 +33,7 @@ const normalizeEmployee = (employee, { includeSensitive = true, includeDocuments
     user: employee.userId,
     fullName: employee.fullName,
     email: employee.email,
+    countryCode: employee.countryCode,
     phoneNumber: employee.phoneNumber,
     dateOfBirth: employee.dateOfBirth,
     employeeId: employee.employeeId,
@@ -162,6 +164,7 @@ export const createEmployee = async (employeeData, requestingUser = null) => {
           {
             name: value.fullName,
             email: value.email,
+            countryCode: value.countryCode,
             phoneNumber: value.phoneNumber,
             password: value.password,
             role: value.role,
@@ -181,6 +184,7 @@ export const createEmployee = async (employeeData, requestingUser = null) => {
           userId: user._id,
           fullName: value.fullName,
           email: value.email,
+          countryCode: value.countryCode,
           phoneNumber: value.phoneNumber,
           dateOfBirth: value.dateOfBirth,
           employeeId,
@@ -353,6 +357,7 @@ export const updateEmployee = async (id, employeeData, requestingUser = null) =>
 
       if (value.fullName) userUpdates.name = value.fullName;
       if (value.email) userUpdates.email = value.email.toLowerCase();
+      if (value.countryCode !== undefined) userUpdates.countryCode = value.countryCode;
       if (value.phoneNumber) userUpdates.phoneNumber = value.phoneNumber;
       if (value.password) userUpdates.password = value.password;
       if (value.role && user.role !== "Admin") userUpdates.role = value.role;
@@ -403,4 +408,78 @@ export const deleteEmployee = async (id, requestingUser = null) => {
 
 export const getEmployeeStats = async (managerId = null, tenantId = null) => {
   return await employeeRepository.getStats(managerId, tenantId);
+};
+
+export const getManagersPayrollAccess = async (queryParams) => {
+  const page = Math.max(parseInt(queryParams.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(queryParams.limit, 10) || 10, 1), 100);
+  const skip = (page - 1) * limit;
+
+  const matchStage = { status: "Active" };
+
+  if (queryParams.search?.trim()) {
+    const search = queryParams.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    matchStage.$or = [
+      { employeeId: { $regex: search, $options: "i" } },
+      { fullName: { $regex: search, $options: "i" } }
+    ];
+  }
+
+  const pipeline = [
+    { $match: matchStage },
+    { $lookup: { from: "users", localField: "userId", foreignField: "_id", as: "user" } },
+    { $unwind: "$user" },
+    { $match: { "user.role": "Manager" } },
+    { $sort: { fullName: 1 } },
+    {
+      $facet: {
+        data: [
+          { $skip: skip },
+          { $limit: limit },
+          { $project: { _id: 1, employeeId: 1, fullName: 1, payrollAccess: 1, "user.name": 1, "user.email": 1 } }
+        ],
+        totalCount: [{ $count: "count" }]
+      }
+    }
+  ];
+
+  const [result] = await Employee.aggregate(pipeline);
+  const totalCount = result.totalCount[0]?.count || 0;
+
+  return {
+    totalCount,
+    currentPage: page,
+    totalPages: Math.ceil(totalCount / limit) || 1,
+    data: result.data.map((emp) => ({
+      id: emp._id,
+      employeeId: emp.employeeId,
+      fullName: emp.fullName,
+      name: emp.user?.name || "",
+      email: emp.user?.email || "",
+      payrollAccess: emp.payrollAccess
+    }))
+  };
+};
+
+export const toggleManagerPayrollAccess = async (employeeId) => {
+  validateObjectId(employeeId, "Employee ID");
+
+  const employee = await employeeRepository.findEmployeeById(employeeId);
+
+  if (!employee) {
+    throwError("Employee not found", 404);
+  }
+
+  if (!employee.userId || employee.userId.role !== "Manager") {
+    throwError("Payroll access can only be toggled for managers", 400);
+  }
+
+  const updated = await employeeRepository.togglePayrollAccess(employeeId);
+
+  return {
+    id: updated._id,
+    employeeId: updated.employeeId,
+    fullName: updated.fullName,
+    payrollAccess: updated.payrollAccess
+  };
 };

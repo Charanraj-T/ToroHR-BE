@@ -57,9 +57,7 @@ const buildVisibilityQuery = async (requestingUser) => {
   if (requestingUser.role === "Manager") {
     const teamIds = await payrollRepository.getTeamEmployeeIds(requestingUser.employeeId);
     return {
-      employeeId: {
-        $in: [new mongoose.Types.ObjectId(requestingUser.employeeId), ...teamIds]
-      }
+      employeeId: { $in: teamIds }
     };
   }
 
@@ -67,6 +65,7 @@ const buildVisibilityQuery = async (requestingUser) => {
 };
 
 const applyFilters = async (query, filters) => {
+  if (filters.employee) query.employeeId = new mongoose.Types.ObjectId(filters.employee);
   if (filters.month) query.month = parseInt(filters.month, 10);
   if (filters.year) query.year = parseInt(filters.year, 10);
 
@@ -430,9 +429,12 @@ export const listPayrolls = async (filters, requestingUser) => {
   };
 };
 
-export const getPayrollSummary = async (requestingUser) => {
+export const getPayrollSummary = async (requestingUser, filters = {}) => {
   const visibilityQuery = await buildVisibilityQuery(requestingUser);
-  const summary = await payrollRepository.getPayrollSummary(visibilityQuery);
+  const query = { ...visibilityQuery };
+  if (filters.month) query.month = parseInt(filters.month, 10);
+  if (filters.year) query.year = parseInt(filters.year, 10);
+  const summary = await payrollRepository.getPayrollSummary(query);
   return normalizePayrollSummary(summary);
 };
 
@@ -441,7 +443,20 @@ export const getMyPayslips = async (filters, requestingUser) => {
     return { totalCount: 0, currentPage: 1, totalPages: 1, data: [] };
   }
 
-  return listPayrolls({ ...filters, employee: requestingUser.employeeId }, requestingUser);
+  const { page, limit } = parsePageLimit(filters);
+  const query = { employeeId: new mongoose.Types.ObjectId(requestingUser.employeeId) };
+  if (filters.month) query.month = parseInt(filters.month, 10);
+  if (filters.year) query.year = parseInt(filters.year, 10);
+  if (filters.status) query.status = filters.status;
+
+  const result = await payrollRepository.listPayrolls({ query, page, limit });
+
+  return {
+    totalCount: result.totalCount,
+    currentPage: result.currentPage,
+    totalPages: result.totalPages,
+    data: normalizePayrollList(result.data)
+  };
 };
 
 export const getPayrollPdf = async (payrollId, requestingUser) => {

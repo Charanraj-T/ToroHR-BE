@@ -7,6 +7,8 @@ const router = express.Router();
 router.use(verifyToken);
 router.use(blockSuperAdmin);
 
+const isAdminOrManager = authorizeRoles("Admin", "Manager");
+
 const canViewProfile = (req, res, next) => {
   const { role, employeeId } = req.user;
   const targetId = req.params.id;
@@ -20,7 +22,17 @@ const canViewProfile = (req, res, next) => {
   next(error);
 };
 
-const isAdminOrManager = authorizeRoles("Admin", "Manager");
+router.get(
+  "/managers/payroll-access",
+  isAdminOrManager,
+  employeeController.getManagersPayrollAccess
+);
+
+router.put(
+  "/:id/payroll-access",
+  authorizeRoles("Admin"),
+  employeeController.toggleManagerPayrollAccess
+);
 
 router.post("/", isAdminOrManager, employeeController.createEmployee);
 router.get("/stats", isAdminOrManager, employeeController.getEmployeeStats);

@@ -12,6 +12,7 @@ const sanitizeUser = (user, employee = null, includeTenant = false) => {
     email: user.email,
     role: user.role,
     isActive: user.isActive,
+    payrollAccess: employee ? employee.payrollAccess : undefined,
   };
 
   if (includeTenant) {

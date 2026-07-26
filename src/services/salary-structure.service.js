@@ -4,7 +4,8 @@ import {
   normalizeSalaryStructureList
 } from "../dtos/salary-structure.dto.js";
 import * as salaryStructureRepository from "../repositories/salary-structure.repository.js";
-import { getTenantEmployeeIds } from "../utils/tenant.util.js";
+import Employee from "../models/employee.model.js";
+import User from "../models/user.model.js";
 
 const throwError = (message, statusCode) => {
   const error = new Error(message);
@@ -35,29 +36,25 @@ const ensureSalaryManageAccess = (requestingUser) => {
   }
 };
 
-const buildListQuery = async (filters, requestingUser) => {
-  const query = {};
-
+const buildEmployeeIds = async (filters, requestingUser) => {
   if (requestingUser.role === "Admin" && requestingUser.tenantId) {
-    const employeeIds = await getTenantEmployeeIds(requestingUser.tenantId);
-    query.employeeId = { $in: employeeIds.map(id => new mongoose.Types.ObjectId(id)) };
-  }
-
-  if (filters.month) {
-    query.effectiveMonth = parseInt(filters.month, 10);
-  }
-
-  if (filters.year) {
-    query.effectiveYear = parseInt(filters.year, 10);
+    const users = await User.find({ tenantId: requestingUser.tenantId }).select("_id").lean();
+    const userIds = users.map(u => u._id);
+    const employees = await Employee.find({ userId: { $in: userIds }, status: "Active" }).select("_id").lean();
+    return employees.map(e => e._id);
   }
 
   if (requestingUser.role === "Manager") {
-    const teamIds = await salaryStructureRepository.getTeamEmployeeIds(requestingUser.employeeId);
-    query.employeeId = {
-      $in: [new mongoose.Types.ObjectId(requestingUser.employeeId), ...teamIds]
-    };
+    return salaryStructureRepository.getTeamEmployeeIds(requestingUser.employeeId);
   }
 
+  return [];
+};
+
+const buildSalaryQuery = (filters) => {
+  const query = {};
+  if (filters.month) query.effectiveMonth = parseInt(filters.month, 10);
+  if (filters.year) query.effectiveYear = parseInt(filters.year, 10);
   return query;
 };
 
@@ -79,8 +76,14 @@ export const listSalaryStructures = async (filters, requestingUser) => {
   ensureSalaryViewAccess(requestingUser);
 
   const { page, limit } = parsePageLimit(filters);
-  const query = await buildListQuery(filters, requestingUser);
-  const result = await salaryStructureRepository.listSalaryStructures({ query, page, limit });
+  const employeeIds = await buildEmployeeIds(filters, requestingUser);
+  const salaryQuery = buildSalaryQuery(filters);
+  const result = await salaryStructureRepository.listEmployeesWithSalaryStructures({
+    employeeIds,
+    salaryQuery,
+    page,
+    limit
+  });
 
   return {
     totalCount: result.totalCount,

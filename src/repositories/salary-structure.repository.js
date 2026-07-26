@@ -1,5 +1,6 @@
 import Employee from "../models/employee.model.js";
 import SalaryStructure from "../models/salary-structure.model.js";
+import mongoose from "mongoose";
 
 const salaryPopulateOptions = [
   {
@@ -25,24 +26,44 @@ export const findSalaryStructureById = (id, session = null) => {
   return SalaryStructure.findById(id).session(session).populate(salaryPopulateOptions);
 };
 
-export const listSalaryStructures = async ({ query, page, limit }) => {
+export const listEmployeesWithSalaryStructures = async ({ employeeIds, salaryQuery, page, limit }) => {
   const skip = (page - 1) * limit;
+  const matchStage = { _id: { $in: employeeIds.map(id => new mongoose.Types.ObjectId(id)) } };
 
-  const [totalCount, data] = await Promise.all([
-    SalaryStructure.countDocuments(query),
-    SalaryStructure.find(query)
-      .sort({ effectiveYear: -1, effectiveMonth: -1, createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate(salaryPopulateOptions)
-      .lean()
-  ]);
+  const lookupPipeline = [
+    { $match: { $expr: { $eq: ["$employeeId", "$$empId"] }, ...salaryQuery } },
+    { $sort: { effectiveYear: -1, effectiveMonth: -1 } },
+    { $limit: 1 }
+  ];
+
+  const facetPipeline = [
+    { $match: matchStage },
+    {
+      $lookup: {
+        from: "salarystructures",
+        let: { empId: "$_id" },
+        pipeline: lookupPipeline,
+        as: "salaryStructure"
+      }
+    },
+    { $unwind: { path: "$salaryStructure", preserveNullAndEmptyArrays: true } },
+    { $sort: { "fullName": 1 } },
+    {
+      $facet: {
+        totalCount: [{ $count: "count" }],
+        data: [{ $skip: skip }, { $limit: limit }]
+      }
+    }
+  ];
+
+  const [result] = await Employee.aggregate(facetPipeline);
+  const totalCount = result.totalCount[0]?.count || 0;
 
   return {
     totalCount,
     currentPage: page,
     totalPages: Math.ceil(totalCount / limit) || 1,
-    data
+    data: result.data
   };
 };
 
@@ -62,12 +83,6 @@ export const findEmployeeById = (employeeId) => {
   return Employee.findById(employeeId).select(
     "employeeId fullName email department designation employmentType status joiningDate reportingManagerId"
   );
-};
-
-export const findActiveEmployees = () => {
-  return Employee.find({ status: "Active" })
-    .select("employeeId fullName designation employmentType status joiningDate")
-    .lean();
 };
 
 export const getTeamEmployeeIds = async (managerId) => {

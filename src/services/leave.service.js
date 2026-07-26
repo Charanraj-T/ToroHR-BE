@@ -154,7 +154,7 @@ const buildVisibilityQuery = async (requestingUser) => {
     const teamIds = await leaveRepository.getTeamEmployeeIds(requestingUser.employeeId);
     return {
       employeeId: {
-        $in: [new mongoose.Types.ObjectId(requestingUser.employeeId), ...teamIds]
+        $in: teamIds
       }
     };
   }
@@ -519,7 +519,18 @@ export const getMyLeaves = async (filters, requestingUser) => {
     return { total: 0, currentPage: 1, totalPages: 1, data: [] };
   }
 
-  return getLeaves({ ...filters, employee: requestingUser.employeeId }, requestingUser);
+  const { page, limit } = parsePageLimit(filters);
+  const query = { employeeId: new mongoose.Types.ObjectId(requestingUser.employeeId) };
+  await applyFilters(query, filters);
+
+  const result = await leaveRepository.listLeaves({ query, page, limit });
+
+  return {
+    total: result.total,
+    currentPage: result.currentPage,
+    totalPages: result.totalPages,
+    data: normalizeLeaveList(result.data)
+  };
 };
 
 export const updateLeave = async (leaveId, leaveData, requestingUser) => {

@@ -67,6 +67,11 @@ export const listPayrollSchema = Joi.object({
   search: Joi.string().trim().allow("")
 });
 
+export const payrollSummarySchema = Joi.object({
+  month: Joi.number().integer().min(1).max(12).allow("").empty(""),
+  year: Joi.number().integer().min(2000).max(2100).allow("").empty("")
+});
+
 export const listSalaryStructureSchema = Joi.object({
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),

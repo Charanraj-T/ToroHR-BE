@@ -2,6 +2,7 @@ import * as payrollService from "../services/payroll.service.js";
 import {
   generatePayrollSchema,
   listPayrollSchema,
+  payrollSummarySchema,
   regeneratePayrollSchema
 } from "../validators/payroll.validator.js";
 
@@ -39,7 +40,10 @@ export const listPayrolls = async (req, res, next) => {
 
 export const getPayrollSummary = async (req, res, next) => {
   try {
-    const summary = await payrollService.getPayrollSummary(req.user);
+    const validated = validate(payrollSummarySchema, req.query, next);
+    if (!validated) return;
+
+    const summary = await payrollService.getPayrollSummary(req.user, validated);
 
     res.status(200).json({
       success: true,

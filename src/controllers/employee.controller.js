@@ -93,3 +93,30 @@ export const getEmployeeStats = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getManagersPayrollAccess = async (req, res, next) => {
+  try {
+    const result = await employeeService.getManagersPayrollAccess(req.query);
+
+    res.status(200).json({
+      success: true,
+      ...result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const toggleManagerPayrollAccess = async (req, res, next) => {
+  try {
+    const manager = await employeeService.toggleManagerPayrollAccess(req.params.id);
+
+    res.status(200).json({
+      success: true,
+      message: `Payroll access ${manager.payrollAccess ? "granted" : "revoked"} successfully`,
+      data: { manager }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

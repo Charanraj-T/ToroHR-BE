@@ -135,7 +135,7 @@ const buildVisibilityQuery = async (requestingUser) => {
     const teamIds = await claimRepository.getTeamEmployeeIds(requestingUser.employeeId);
     return {
       employeeId: {
-        $in: [new mongoose.Types.ObjectId(requestingUser.employeeId), ...teamIds]
+        $in: teamIds
       }
     };
   }
