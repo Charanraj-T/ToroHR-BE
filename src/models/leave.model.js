@@ -67,6 +67,10 @@ const leaveSchema = new mongoose.Schema(
       trim: true,
       maxlength: [500, "Cancellation reason cannot exceed 500 characters"],
       default: ""
+    },
+    weekendDays: {
+      type: [Number],
+      default: [0, 6]
     }
   },
   {

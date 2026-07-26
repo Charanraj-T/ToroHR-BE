@@ -46,6 +46,10 @@ const attendanceSchema = new mongoose.Schema(
     lateCheckInMinutes: {
       type: Number,
       default: 0
+    },
+    weekendDays: {
+      type: [Number],
+      default: [0, 6]
     }
   },
   {

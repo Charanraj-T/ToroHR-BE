@@ -15,6 +15,8 @@ export const normalizeCompanySettings = (settings) => {
     state: settings.state || "",
     country: settings.country || "",
     postalCode: settings.postalCode || "",
+    saturdayIsHoliday: settings.saturdayIsHoliday !== false,
+    sundayIsHoliday: settings.sundayIsHoliday !== false,
     createdAt: settings.createdAt,
     updatedAt: settings.updatedAt,
   };

@@ -94,7 +94,7 @@ export const isDateInApprovedLeave = (date, approvedLeaves) => {
 
     if (dayStart >= leaveStart && dayStart <= leaveEnd) {
       const fraction = leave.dayType === "Half-day" ? 0.5 : 1;
-      return { leaveType: leave.leaveType, fraction };
+      return { leaveType: leave.leaveType, fraction, weekendDays: leave.weekendDays };
     }
   }
 
@@ -106,11 +106,12 @@ export const computeAttendanceSnapshot = ({
   periodEnd,
   holidayDateSet,
   attendanceRecords,
-  approvedLeaves
+  approvedLeaves,
+  weekendDays = [0, 6]
 }) => {
   const attendanceMap = new Map();
   for (const record of attendanceRecords) {
-    attendanceMap.set(dateKey(record.date), record.status);
+    attendanceMap.set(dateKey(record.date), record);
   }
 
   let totalWeekdays = 0;
@@ -123,22 +124,43 @@ export const computeAttendanceSnapshot = ({
   const dates = iterateDatesInRange(periodStart, periodEnd);
 
   for (const date of dates) {
-    if (isWeekend(date)) continue;
-
-    totalWeekdays += 1;
     const key = dateKey(date);
-    const isHoliday = holidayDateSet.has(key);
+    const attendanceRecord = attendanceMap.get(key);
 
-    if (isHoliday) {
-      holidayDays += 1;
+    if (attendanceRecord) {
+      const recordWeekendDays = attendanceRecord.weekendDays || [0, 6];
+      if (isWeekend(date, recordWeekendDays)) continue;
+
+      totalWeekdays += 1;
+      if (holidayDateSet.has(key)) {
+        holidayDays += 1;
+        continue;
+      }
+
+      workingDays += 1;
+      if (attendanceRecord.status === "Present") {
+        presentDays += 1;
+      } else if (attendanceRecord.status === "Half-day") {
+        presentDays += 0.5;
+        lopDays += 0.5;
+      } else {
+        lopDays += 1;
+      }
       continue;
     }
 
-    workingDays += 1;
-    const status = attendanceMap.get(key);
     const leaveInfo = isDateInApprovedLeave(date, approvedLeaves);
-
     if (leaveInfo) {
+      const leaveWeekendDays = leaveInfo.weekendDays || [0, 6];
+      if (isWeekend(date, leaveWeekendDays)) continue;
+
+      totalWeekdays += 1;
+      if (holidayDateSet.has(key)) {
+        holidayDays += 1;
+        continue;
+      }
+
+      workingDays += 1;
       if (PAID_LEAVE_TYPES.includes(leaveInfo.leaveType)) {
         leaveDays += leaveInfo.fraction;
       } else {
@@ -147,16 +169,16 @@ export const computeAttendanceSnapshot = ({
       continue;
     }
 
-    if (status === "Present") {
-      presentDays += 1;
-    } else if (status === "Half-day") {
-      presentDays += 0.5;
-      lopDays += 0.5;
-    } else if (status === "Leave") {
-      lopDays += 1;
-    } else {
-      lopDays += 1;
+    if (isWeekend(date, weekendDays)) continue;
+
+    totalWeekdays += 1;
+    if (holidayDateSet.has(key)) {
+      holidayDays += 1;
+      continue;
     }
+
+    workingDays += 1;
+    lopDays += 1;
   }
 
   return {

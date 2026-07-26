@@ -44,14 +44,15 @@ export const getEndOfDay = (date) => {
 };
 
 /**
- * Check if a date falls on a weekend (Sat/Sun) — UTC
+ * Check if a date falls on a weekend — configurable per tenant
  * @param {Date|string} date
+ * @param {number[]} weekendDays - array of day numbers (0=Sun, 6=Sat). Default [0, 6]
  * @returns {boolean}
  */
-export const isWeekend = (date) => {
+export const isWeekend = (date, weekendDays = [0, 6]) => {
   const d = new Date(date);
   const day = d.getUTCDay();
-  return day === 0 || day === 6;
+  return weekendDays.includes(day);
 };
 
 /**

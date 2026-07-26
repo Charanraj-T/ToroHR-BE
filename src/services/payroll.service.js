@@ -9,6 +9,7 @@ import { getTenantEmployeeIds } from "../utils/tenant.util.js";
 import * as salaryStructureRepository from "../repositories/salary-structure.repository.js";
 import { getCompanySettings as getCompanySettingsRepo } from "../repositories/settings.repository.js";
 import { findHolidaysInDateRange } from "../repositories/holiday.repository.js";
+import { buildWeekendDaysFromSettings } from "../utils/weekend.util.js";
 import { getPayrollSettingsInternal } from "./payroll-settings.service.js";
 import {
   buildCompanyAddress,
@@ -138,13 +139,15 @@ const buildPayrollRecord = async ({
   salaryStructure,
   payrollSettings,
   companySettings,
+  weekendDays = [0, 6],
+  tenantId = null,
   generatedBy = null
 }) => {
   const period = getEligiblePeriod(employee, month, year);
   if (!period) return null;
 
   const { periodStart, periodEnd } = period;
-  const holidays = await findHolidaysInDateRange(periodStart, periodEnd);
+  const holidays = await findHolidaysInDateRange(periodStart, periodEnd, tenantId);
   const holidayDateSet = buildHolidayDateSet(holidays);
 
   const [attendanceRecords, approvedLeaves] = await Promise.all([
@@ -157,7 +160,8 @@ const buildPayrollRecord = async ({
     periodEnd,
     holidayDateSet,
     attendanceRecords,
-    approvedLeaves
+    approvedLeaves,
+    weekendDays
   });
 
   let salarySnapshot;
@@ -251,6 +255,8 @@ export const generatePayrollForMonth = async (month, year, requestingUser = null
       salaryStructure,
       payrollSettings,
       companySettings,
+      weekendDays: buildWeekendDaysFromSettings(companySettings),
+      tenantId,
       generatedBy: requestingUser?.userId || null
     });
 
@@ -337,6 +343,8 @@ export const regeneratePayroll = async (employeeId, data, requestingUser) => {
     salaryStructure,
     payrollSettings,
     companySettings,
+    weekendDays: buildWeekendDaysFromSettings(companySettings),
+    tenantId,
     generatedBy: requestingUser.userId
   });
 

@@ -3,6 +3,7 @@ import { normalizeLeave, normalizeLeaveBalance, normalizeLeaveList } from "../dt
 import * as leaveRepository from "../repositories/leave.repository.js";
 import { getTenantEmployeeIds } from "../utils/tenant.util.js";
 import { findHolidaysInDateRange } from "../repositories/holiday.repository.js";
+import { buildWeekendDays } from "../utils/weekend.util.js";
 import {
   calculateLeaveDays,
   getBalanceUpdateForReversal,
@@ -31,7 +32,7 @@ const parsePageLimit = (queryParams) => ({
   limit: Math.min(Math.max(parseInt(queryParams.limit, 10) || 20, 1), 100)
 });
 
-const validateDateRange = (fromDate, toDate, dayType = "Full-day") => {
+const validateDateRange = (fromDate, toDate, dayType = "Full-day", weekendDays = [0, 6]) => {
   const from = parseDateOnly(fromDate);
   const to = parseDateOnly(toDate);
 
@@ -43,7 +44,7 @@ const validateDateRange = (fromDate, toDate, dayType = "Full-day") => {
     throwError("Half-day leave must start and end on the same date", 400);
   }
 
-  const leaveDays = calculateLeaveDays(from, to, dayType);
+  const leaveDays = calculateLeaveDays(from, to, dayType, weekendDays);
 
   if (leaveDays <= 0) {
     throwError("Leave request must include at least one working day", 400);
@@ -229,7 +230,8 @@ export const applyLeave = async (leaveData, requestingUser) => {
   }
 
   const dayType = leaveData.dayType || "Full-day";
-  const { from, to, leaveDays } = validateDateRange(leaveData.fromDate, leaveData.toDate, dayType);
+  const weekendDays = await buildWeekendDays(requestingUser.tenantId);
+  const { from, to, leaveDays } = validateDateRange(leaveData.fromDate, leaveData.toDate, dayType, weekendDays);
   let session;
 
   try {
@@ -280,7 +282,8 @@ export const applyLeave = async (leaveData, requestingUser) => {
           leaveDays,
           dayType,
           reason: leaveData.reason || "",
-          appliedBy: requestingUser.userId
+          appliedBy: requestingUser.userId,
+          weekendDays
         },
         session
       );
@@ -380,7 +383,8 @@ export const approveLeave = async (leaveId, requestingUser) => {
       }
 
       const holidaysInRange = await findHolidaysInDateRange(leave.fromDate, leave.toDate, requestingUser.tenantId);
-      const dates = getWorkingDatesBetween(leave.fromDate, leave.toDate, holidaysInRange.map(h => h.date));
+      const weekendDaysForApproval = await buildWeekendDays(requestingUser.tenantId);
+      const dates = getWorkingDatesBetween(leave.fromDate, leave.toDate, holidaysInRange.map(h => h.date), weekendDaysForApproval);
       await leaveRepository.markAttendanceAsLeave({
         employeeId: leave.employeeId._id,
         dates,
@@ -488,7 +492,8 @@ export const cancelLeave = async (leaveId, cancelData, requestingUser) => {
         );
 
         const holidaysInRange = await findHolidaysInDateRange(leave.fromDate, leave.toDate, requestingUser.tenantId);
-        const dates = getWorkingDatesBetween(leave.fromDate, leave.toDate, holidaysInRange.map(h => h.date));
+        const weekendDaysForCancel = await buildWeekendDays(requestingUser.tenantId);
+        const dates = getWorkingDatesBetween(leave.fromDate, leave.toDate, holidaysInRange.map(h => h.date), weekendDaysForCancel);
         await leaveRepository.clearLeaveAttendance({
           employeeId: leave.employeeId._id,
           dates,
@@ -537,7 +542,8 @@ export const updateLeave = async (leaveId, leaveData, requestingUser) => {
   validateObjectId(leaveId, "Leave ID");
 
   const dayType = leaveData.dayType || "Full-day";
-  const { from, to, leaveDays } = validateDateRange(leaveData.fromDate, leaveData.toDate, dayType);
+  const weekendDays = await buildWeekendDays(requestingUser.tenantId);
+  const { from, to, leaveDays } = validateDateRange(leaveData.fromDate, leaveData.toDate, dayType, weekendDays);
   let session;
 
   try {
@@ -603,7 +609,8 @@ export const updateLeave = async (leaveId, leaveData, requestingUser) => {
         toDate: to,
         leaveDays,
         dayType,
-        reason: leaveData.reason || ""
+        reason: leaveData.reason || "",
+        weekendDays
       };
 
       updatedLeave = await leaveRepository.updateLeaveById(leaveId, updateData, session);

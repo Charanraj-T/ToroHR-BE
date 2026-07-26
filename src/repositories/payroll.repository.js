@@ -91,7 +91,7 @@ export const findAttendanceForPeriod = (employeeId, periodStart, periodEnd) => {
       $lte: getEndOfDay(periodEnd)
     }
   })
-    .select("date status")
+    .select("date status weekendDays")
     .lean();
 };
 
@@ -102,7 +102,7 @@ export const findApprovedLeavesForPeriod = (employeeId, periodStart, periodEnd) 
     fromDate: { $lte: getEndOfDay(periodEnd) },
     toDate: { $gte: getStartOfDay(periodStart) }
   })
-    .select("fromDate toDate leaveType dayType")
+    .select("fromDate toDate leaveType dayType weekendDays")
     .lean();
 };
 

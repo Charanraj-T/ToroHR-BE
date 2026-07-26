@@ -17,7 +17,7 @@ const DEFAULT_LEAVE_BALANCE = {
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-export const calculateLeaveDays = (fromDate, toDate, dayType = "Full-day") => {
+export const calculateLeaveDays = (fromDate, toDate, dayType = "Full-day", weekendDays = [0, 6]) => {
   const start = getStartOfDay(fromDate);
   const end = getStartOfDay(toDate);
 
@@ -26,14 +26,14 @@ export const calculateLeaveDays = (fromDate, toDate, dayType = "Full-day") => {
   }
 
   if (dayType === "Half-day") {
-    return start.getTime() === end.getTime() && !isWeekend(start) ? 0.5 : 0;
+    return start.getTime() === end.getTime() && !isWeekend(start, weekendDays) ? 0.5 : 0;
   }
 
   let total = 0;
   const cursor = new Date(start);
 
   while (cursor <= end) {
-    if (!isWeekend(cursor)) {
+    if (!isWeekend(cursor, weekendDays)) {
       total += 1;
     }
 
@@ -43,7 +43,7 @@ export const calculateLeaveDays = (fromDate, toDate, dayType = "Full-day") => {
   return total;
 };
 
-export const getWorkingDatesBetween = (fromDate, toDate, excludeDates = []) => {
+export const getWorkingDatesBetween = (fromDate, toDate, excludeDates = [], weekendDays = [0, 6]) => {
   const excludeSet = new Set();
   for (const d of excludeDates) {
     const dt = new Date(d);
@@ -56,7 +56,7 @@ export const getWorkingDatesBetween = (fromDate, toDate, excludeDates = []) => {
 
   while (cursor <= end) {
     const dateStr = cursor.toISOString().split('T')[0];
-    if (!isWeekend(cursor) && !excludeSet.has(dateStr)) {
+    if (!isWeekend(cursor, weekendDays) && !excludeSet.has(dateStr)) {
       dates.push(new Date(cursor));
     }
 

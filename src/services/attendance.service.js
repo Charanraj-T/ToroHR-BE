@@ -5,7 +5,8 @@ import Leave from "../models/leave.model.js";
 import { findHolidaysInDateRange } from "../repositories/holiday.repository.js";
 import * as attendanceRepository from "../repositories/attendance.repository.js";
 import { getTenantEmployeeIds } from "../utils/tenant.util.js";
-import { getStartOfDay, getEndOfDay, getStartOfDayIST, getEndOfDayIST } from "../utils/date.util.js";
+import { getStartOfDay, getEndOfDay, getStartOfDayIST, getEndOfDayIST, isWeekend } from "../utils/date.util.js";
+import { buildWeekendDays } from "../utils/weekend.util.js";
 import {
   calculateHoursWorked,
   isFutureDate,
@@ -41,6 +42,13 @@ export const checkIn = async (employeeId) => {
     const holidays = await findHolidaysInDateRange(todayStart, todayEnd, employee.userId?.tenantId);
     if (holidays.length > 0) {
       const error = new Error(`Today is a holiday: ${holidays[0].name}`);
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const weekendDays = await buildWeekendDays(employee.userId?.tenantId);
+    if (isWeekend(today, weekendDays)) {
+      const error = new Error("Cannot check in on a weekend");
       error.statusCode = 400;
       throw error;
     }
@@ -99,7 +107,8 @@ export const checkIn = async (employeeId) => {
             markingMethod: "Self",
             isLateCheckIn: isLate,
             lateCheckInMinutes: minutesLate,
-            status: "Present"
+            status: "Present",
+            weekendDays
           }
         ],
         { session }
@@ -228,6 +237,13 @@ export const markAttendanceManual = async (
       throw error;
     }
 
+    const weekendDays = await buildWeekendDays(employee.userId?.tenantId);
+    if (isWeekend(dateStart, weekendDays) && status !== "Holiday") {
+      const error = new Error(`Cannot mark attendance - ${dateStr} is a weekend`);
+      error.statusCode = 400;
+      throw error;
+    }
+
     const approvedLeave = await Leave.findOne({
       employeeId,
       status: { $in: ["Approved"] },
@@ -267,7 +283,8 @@ export const markAttendanceManual = async (
       status,
       markedBy,
       markingMethod,
-      hoursWorked
+      hoursWorked,
+      weekendDays
     };
 
     if (checkInTime) {
@@ -375,6 +392,11 @@ export const updateAttendanceRecord = async (attendanceId, updateData, requestin
     }
 
     updateData.hoursWorked = hoursWorked;
+
+    if (!updateData.weekendDays) {
+      const weekendDays = await buildWeekendDays(requestingUser?.tenantId);
+      updateData.weekendDays = weekendDays;
+    }
 
     const updated = await Attendance.findByIdAndUpdate(
       attendanceId,
@@ -509,13 +531,13 @@ export const getAttendanceForExport = async (startDate, endDate, filters = {}) =
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
   }));
 
+  const weekendDays = await buildWeekendDays(filters.tenantId);
   let weekendCount = 0;
   let holidayCount = 0;
   const current = new Date(start);
   while (current <= end) {
-    const dayOfWeek = current.getUTCDay();
     const dateStr = `${current.getUTCFullYear()}-${String(current.getUTCMonth() + 1).padStart(2, '0')}-${String(current.getUTCDate()).padStart(2, '0')}`;
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
+    if (isWeekend(current, weekendDays)) {
       weekendCount++;
     } else if (holidayDateSet.has(dateStr)) {
       holidayCount++;

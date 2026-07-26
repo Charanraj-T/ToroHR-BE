@@ -12,4 +12,6 @@ export const updateCompanySettingsSchema = Joi.object({
   state: Joi.string().trim().max(100).allow("", null).default(""),
   country: Joi.string().trim().max(100).allow("", null).default(""),
   postalCode: Joi.string().trim().max(20).allow("", null).default(""),
+  saturdayIsHoliday: Joi.boolean().default(true),
+  sundayIsHoliday: Joi.boolean().default(true),
 });

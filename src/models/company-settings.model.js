@@ -74,6 +74,14 @@ const companySettingsSchema = new mongoose.Schema(
       maxlength: [20, "Postal code cannot exceed 20 characters"],
       default: "",
     },
+    saturdayIsHoliday: {
+      type: Boolean,
+      default: true,
+    },
+    sundayIsHoliday: {
+      type: Boolean,
+      default: true,
+    },
   },
   {
     timestamps: true,
