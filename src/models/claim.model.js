@@ -35,6 +35,11 @@ const claimSchema = new mongoose.Schema(
       ref: "Employee",
       required: [true, "Employee ID is required"]
     },
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      index: true
+    },
     name: {
       type: String,
       required: [true, "Claim name is required"],

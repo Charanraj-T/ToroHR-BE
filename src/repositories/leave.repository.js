@@ -89,10 +89,13 @@ export const getOrCreateLeaveBalance = async (employeeId, year, session = null) 
     return balance;
   }
 
+  const employee = await Employee.findById(employeeId).select("tenantId").session(session).lean();
+
   const [created] = await LeaveBalance.create(
     [
       {
         employeeId,
+        tenantId: employee?.tenantId || null,
         year
       }
     ],
@@ -102,10 +105,21 @@ export const getOrCreateLeaveBalance = async (employeeId, year, session = null) 
   return created;
 };
 
-export const updateLeaveBalance = (employeeId, year, update, session = null) => {
+export const updateLeaveBalance = (employeeId, year, update, session = null, tenantId = null) => {
+  const filter = { employeeId, year };
+  if (tenantId) filter.tenantId = tenantId;
+
+  const effectiveUpdate = { ...update };
+  if (tenantId) {
+    effectiveUpdate.$setOnInsert = {
+      ...(effectiveUpdate.$setOnInsert || {}),
+      tenantId
+    };
+  }
+
   return LeaveBalance.findOneAndUpdate(
-    { employeeId, year },
-    update,
+    filter,
+    effectiveUpdate,
     {
       new: true,
       runValidators: true,
@@ -116,8 +130,9 @@ export const updateLeaveBalance = (employeeId, year, update, session = null) => 
   );
 };
 
-export const applyLeaveBalanceApproval = (employeeId, year, leaveType, leaveDays, session = null) => {
+export const applyLeaveBalanceApproval = (employeeId, year, leaveType, leaveDays, session = null, tenantId = null) => {
   const filter = { employeeId, year };
+  if (tenantId) filter.tenantId = tenantId;
   const update = leaveType === "LOP" ? { $inc: { LOP: leaveDays } } : { $inc: { [leaveType]: -leaveDays } };
 
   if (leaveType !== "LOP") {
@@ -171,7 +186,7 @@ export const findEmployeeIdsBySearch = async (search) => {
   return employees.map((employee) => employee._id);
 };
 
-export const markAttendanceAsLeave = async ({ employeeId, dates, dayType, markedBy, markingMethod, session }) => {
+export const markAttendanceAsLeave = async ({ employeeId, dates, dayType, tenantId = null, markedBy, markingMethod, session }) => {
   const isHalfDay = dayType === "Half-day";
 
   const operations = dates.map((date) => ({
@@ -191,7 +206,8 @@ export const markAttendanceAsLeave = async ({ employeeId, dates, dayType, marked
             },
             $setOnInsert: {
               punches: [],
-              hoursWorked: 0
+              hoursWorked: 0,
+              tenantId
             }
           }
         : {
@@ -202,7 +218,8 @@ export const markAttendanceAsLeave = async ({ employeeId, dates, dayType, marked
               punches: [],
               hoursWorked: 0,
               markedBy,
-              markingMethod
+              markingMethod,
+              tenantId
             }
           },
       upsert: true

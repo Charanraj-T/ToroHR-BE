@@ -108,7 +108,7 @@ export const findApprovedLeavesForPeriod = (employeeId, periodStart, periodEnd) 
 
 export const findEmployeeById = (employeeId) => {
   return Employee.findById(employeeId).select(
-    "employeeId fullName designation employmentType status joiningDate reportingManagerId"
+    "employeeId fullName designation employmentType status joiningDate reportingManagerId tenantId"
   );
 };
 

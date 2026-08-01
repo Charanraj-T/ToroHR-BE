@@ -81,7 +81,7 @@ export const findSalaryStructuresForEmployees = (employeeIds) => {
 
 export const findEmployeeById = (employeeId) => {
   return Employee.findById(employeeId).select(
-    "employeeId fullName email department designation employmentType status joiningDate reportingManagerId"
+    "employeeId fullName email department designation employmentType status joiningDate reportingManagerId tenantId"
   );
 };
 

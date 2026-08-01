@@ -35,7 +35,7 @@ export const getEmployees = async (req, res, next) => {
 
 export const getEmployeeById = async (req, res, next) => {
   try {
-    const employee = await employeeService.getEmployeeById(req.params.id);
+    const employee = await employeeService.getEmployeeById(req.params.id, req.user);
 
     res.status(200).json({
       success: true,
@@ -96,7 +96,7 @@ export const getEmployeeStats = async (req, res, next) => {
 
 export const getManagersPayrollAccess = async (req, res, next) => {
   try {
-    const result = await employeeService.getManagersPayrollAccess(req.query);
+    const result = await employeeService.getManagersPayrollAccess(req.query, req.user.tenantId);
 
     res.status(200).json({
       success: true,
@@ -109,7 +109,7 @@ export const getManagersPayrollAccess = async (req, res, next) => {
 
 export const toggleManagerPayrollAccess = async (req, res, next) => {
   try {
-    const manager = await employeeService.toggleManagerPayrollAccess(req.params.id);
+    const manager = await employeeService.toggleManagerPayrollAccess(req.params.id, req.user);
 
     res.status(200).json({
       success: true,

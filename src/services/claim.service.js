@@ -43,8 +43,18 @@ const ensureEmployeeExists = async (employeeId, session = null) => {
 };
 
 const ensureClaimViewAccess = (requestingUser, claim) => {
+  if (requestingUser?.tenantId && claim.tenantId?.toString() !== requestingUser.tenantId) {
+    throwError("Claim not found", 404);
+  }
+
   if (!validateClaimAccess(requestingUser, claim.employeeId)) {
     throwError("You do not have permission to access this claim", 403);
+  }
+};
+
+const ensureSameTenant = (requestingUser, claim) => {
+  if (requestingUser?.tenantId && claim?.tenantId?.toString() !== requestingUser.tenantId) {
+    throwError("Claim not found", 404);
   }
 };
 
@@ -218,6 +228,7 @@ export const createClaim = async (claimData, requestingUser) => {
 
   const claim = await claimRepository.createClaim({
     employeeId: requestingUser.employeeId,
+    tenantId: requestingUser.tenantId || null,
     name: claimData.name,
     amount: claimData.amount,
     expenseDate,
@@ -304,6 +315,8 @@ export const approveClaim = async (claimId, requestingUser) => {
     throwError("Claim not found", 404);
   }
 
+  ensureSameTenant(requestingUser, claim);
+
   ensureApprovalAccess(requestingUser, claim.employeeId);
 
   const transition = validateTransition(claim.status, "Approved");
@@ -329,6 +342,8 @@ export const rejectClaim = async (claimId, requestingUser) => {
   if (!claim) {
     throwError("Claim not found", 404);
   }
+
+  ensureSameTenant(requestingUser, claim);
 
   ensureApprovalAccess(requestingUser, claim.employeeId);
 
@@ -360,6 +375,8 @@ export const cancelClaim = async (claimId, requestingUser) => {
     throwError(`Claims with status "${claim.status}" cannot be cancelled`, 400);
   }
 
+  ensureSameTenant(requestingUser, claim);
+
   ensureCancellationAccess(requestingUser, claim.employeeId);
 
   const transition = validateTransition(claim.status, "Cancelled");
@@ -385,6 +402,8 @@ export const reimburseClaim = async (claimId, requestingUser) => {
   if (!claim) {
     throwError("Claim not found", 404);
   }
+
+  ensureSameTenant(requestingUser, claim);
 
   ensureReimbursementAccess(requestingUser, claim.employeeId);
 
@@ -432,6 +451,8 @@ export const deleteClaim = async (claimId, requestingUser) => {
   if (!claim) {
     throwError("Claim not found", 404);
   }
+
+  ensureSameTenant(requestingUser, claim);
 
   if (claim.status !== "Cancelled" && claim.status !== "Rejected") {
     throwError(`Only cancelled or rejected claims can be deleted. Current status: "${claim.status}"`, 400);

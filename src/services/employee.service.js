@@ -85,7 +85,13 @@ const validateObjectId = (id, label = "ID") => {
   }
 };
 
-const validateReportingManager = async (reportingManagerId) => {
+const ensureSameTenant = (employee, requestingUser) => {
+  if (requestingUser?.tenantId && employee?.tenantId?.toString() !== requestingUser.tenantId) {
+    throwError("Employee not found", 404);
+  }
+};
+
+const validateReportingManager = async (reportingManagerId, requestingUser = null) => {
   if (!reportingManagerId) {
     return null;
   }
@@ -95,6 +101,10 @@ const validateReportingManager = async (reportingManagerId) => {
   const manager = await employeeRepository.findEmployeeById(reportingManagerId);
 
   if (!manager) {
+    throwError("Reporting manager not found", 400);
+  }
+
+  if (requestingUser?.tenantId && manager.tenantId?.toString() !== requestingUser.tenantId) {
     throwError("Reporting manager not found", 400);
   }
 
@@ -149,7 +159,7 @@ export const createEmployee = async (employeeData, requestingUser = null) => {
   const value = validateCreateEmployeeDto(employeeData);
 
   await ensureUniqueEmployeeFields(value);
-  await validateReportingManager(value.reportingManagerId);
+  await validateReportingManager(value.reportingManagerId, requestingUser);
 
   const session = await mongoose.startSession();
 
@@ -182,6 +192,7 @@ export const createEmployee = async (employeeData, requestingUser = null) => {
       const [employee] = await employeeRepository.createEmployee(
         {
           userId: user._id,
+          tenantId: requestingUser?.tenantId || null,
           fullName: value.fullName,
           email: value.email,
           countryCode: value.countryCode,
@@ -271,7 +282,7 @@ export const getEmployees = async (queryParams) => {
   };
 };
 
-export const getEmployeeById = async (id) => {
+export const getEmployeeById = async (id, requestingUser = null) => {
   validateObjectId(id, "Employee ID");
 
   const employee = await employeeRepository.findEmployeeById(id);
@@ -279,6 +290,8 @@ export const getEmployeeById = async (id) => {
   if (!employee) {
     throwError("Employee not found", 404);
   }
+
+  ensureSameTenant(employee, requestingUser);
 
   return normalizeEmployee(employee, { includeDocuments: true });
 };
@@ -293,6 +306,8 @@ export const updateEmployee = async (id, employeeData, requestingUser = null) =>
     throwError("Employee not found", 404);
   }
 
+  ensureSameTenant(employee, requestingUser);
+
   if (value.reportingManagerId && value.reportingManagerId === id) {
     throwError("Employee cannot be their own reporting manager", 400);
   }
@@ -305,7 +320,7 @@ export const updateEmployee = async (id, employeeData, requestingUser = null) =>
     employeeId: employee._id.toString(),
     userId: employee.userId._id.toString()
   });
-  await validateReportingManager(value.reportingManagerId);
+  await validateReportingManager(value.reportingManagerId, requestingUser);
 
   const session = await mongoose.startSession();
 
@@ -384,6 +399,8 @@ export const deleteEmployee = async (id, requestingUser = null) => {
     throwError("Employee not found", 404);
   }
 
+  ensureSameTenant(employee, requestingUser);
+
   await ensureManagerHasNoActiveReports(id);
 
   const session = await mongoose.startSession();
@@ -410,12 +427,16 @@ export const getEmployeeStats = async (managerId = null, tenantId = null) => {
   return await employeeRepository.getStats(managerId, tenantId);
 };
 
-export const getManagersPayrollAccess = async (queryParams) => {
+export const getManagersPayrollAccess = async (queryParams, tenantId = null) => {
   const page = Math.max(parseInt(queryParams.page, 10) || 1, 1);
   const limit = Math.min(Math.max(parseInt(queryParams.limit, 10) || 10, 1), 100);
   const skip = (page - 1) * limit;
 
   const matchStage = { status: "Active" };
+
+  if (tenantId) {
+    matchStage.tenantId = new mongoose.Types.ObjectId(tenantId);
+  }
 
   if (queryParams.search?.trim()) {
     const search = queryParams.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -461,7 +482,7 @@ export const getManagersPayrollAccess = async (queryParams) => {
   };
 };
 
-export const toggleManagerPayrollAccess = async (employeeId) => {
+export const toggleManagerPayrollAccess = async (employeeId, requestingUser = null) => {
   validateObjectId(employeeId, "Employee ID");
 
   const employee = await employeeRepository.findEmployeeById(employeeId);
@@ -469,6 +490,8 @@ export const toggleManagerPayrollAccess = async (employeeId) => {
   if (!employee) {
     throwError("Employee not found", 404);
   }
+
+  ensureSameTenant(employee, requestingUser);
 
   if (!employee.userId || employee.userId.role !== "Manager") {
     throwError("Payroll access can only be toggled for managers", 400);

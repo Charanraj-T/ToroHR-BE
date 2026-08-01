@@ -134,7 +134,8 @@ export const checkIn = async (employeeId) => {
             isLateCheckIn: isLate,
             lateCheckInMinutes: minutesLate,
             status: "Present",
-            weekendDays
+            weekendDays,
+            tenantId: employee.userId?.tenantId
           }
         ],
         { session }
@@ -233,7 +234,8 @@ export const markAttendanceManual = async (
   checkOutTime,
   markedBy,
   markingMethod,
-  punches = null
+  punches = null,
+  tenantId = null
 ) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -241,6 +243,12 @@ export const markAttendanceManual = async (
   try {
     const employee = await Employee.findById(employeeId).populate("userId").session(session);
     if (!employee) {
+      const error = new Error("Employee not found");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (tenantId && employee.userId?.tenantId?.toString() !== tenantId) {
       const error = new Error("Employee not found");
       error.statusCode = 404;
       throw error;
@@ -321,6 +329,7 @@ export const markAttendanceManual = async (
           {
             employeeId,
             date: startOfDay,
+            tenantId: employee.userId?.tenantId,
             ...updateData
           }
         ],
@@ -352,11 +361,27 @@ export const updateAttendanceRecord = async (attendanceId, updateData, requestin
       throw error;
     }
 
-    if (requestingUser.role === "Manager") {
+    if (requestingUser.role === "Manager" || requestingUser.role === "Admin") {
       const ownerId = attendance.employeeId?.toString();
       if (ownerId !== requestingUser.employeeId) {
         const owner = await Employee.findById(ownerId).session(session);
-        if (!owner || !owner.reportingManagerId || owner.reportingManagerId.toString() !== requestingUser.employeeId) {
+
+        if (!owner) {
+          const error = new Error("Attendance record not found");
+          error.statusCode = 404;
+          throw error;
+        }
+
+        if (requestingUser?.tenantId && owner.tenantId?.toString() !== requestingUser.tenantId) {
+          const error = new Error("Attendance record not found");
+          error.statusCode = 404;
+          throw error;
+        }
+
+        if (
+          requestingUser.role === "Manager" &&
+          (!owner.reportingManagerId || owner.reportingManagerId.toString() !== requestingUser.employeeId)
+        ) {
           const error = new Error("You can only update attendance for your team members");
           error.statusCode = 403;
           throw error;
@@ -403,10 +428,19 @@ export const updateAttendanceRecord = async (attendanceId, updateData, requestin
   }
 };
 
-export const getAttendanceById = async (attendanceId) => {
+export const getAttendanceById = async (attendanceId, requestingUser = null) => {
   const attendance = await attendanceRepository.findAttendanceById(attendanceId);
 
   if (!attendance) {
+    const error = new Error("Attendance record not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (
+    requestingUser?.tenantId &&
+    attendance.employeeId?.tenantId?.toString() !== requestingUser.tenantId
+  ) {
     const error = new Error("Attendance record not found");
     error.statusCode = 404;
     throw error;
@@ -497,7 +531,16 @@ export const getTeamAttendance = async (managerId, filters) => {
 };
 
 export const getAttendanceForExport = async (startDate, endDate, filters = {}) => {
-  const employeeSummaries = await attendanceRepository.getAttendanceSummaryForDateRange(startDate, endDate, filters);
+  let employeeIds = filters.employeeIds;
+
+  if (!employeeIds && !filters.employeeId && !filters.managerId && filters.tenantId) {
+    employeeIds = await getTenantEmployeeIds(filters.tenantId);
+  }
+
+  const employeeSummaries = await attendanceRepository.getAttendanceSummaryForDateRange(startDate, endDate, {
+    ...filters,
+    employeeIds
+  });
 
   const start = getStartOfDay(startDate);
   const end = getEndOfDay(endDate);
@@ -559,7 +602,24 @@ export const getEmployeeStats = async (employeeId, month, year) => {
   };
 };
 
-export const deleteAttendanceRecord = async (attendanceId) => {
+export const deleteAttendanceRecord = async (attendanceId, requestingUser = null) => {
+  const attendance = await attendanceRepository.findAttendanceById(attendanceId);
+
+  if (!attendance) {
+    const error = new Error("Attendance record not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (
+    requestingUser?.tenantId &&
+    attendance.employeeId?.tenantId?.toString() !== requestingUser.tenantId
+  ) {
+    const error = new Error("Attendance record not found");
+    error.statusCode = 404;
+    throw error;
+  }
+
   const deleted = await attendanceRepository.deleteAttendance(attendanceId);
 
   if (!deleted) {

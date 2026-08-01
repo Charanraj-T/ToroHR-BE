@@ -1,6 +1,7 @@
 import https from "https";
 import http from "http";
 import PDFDocument from "pdfkit";
+import Tenant from "../models/tenant.model.js";
 import { getEndOfDay, getStartOfDay, isWeekend, parseDateOnly } from "./date.util.js";
 
 export const PAYROLL_STATUSES = ["Draft", "Processed", "Paid"];
@@ -525,15 +526,26 @@ export const startPayrollGenerationJob = (generateCallback) => {
 
   let lastRunKey = null;
 
+  const getActiveTenantIds = async () => {
+    const tenants = await Tenant.find({ status: "Active" }).select("_id").lean();
+    return tenants.map((tenant) => tenant._id);
+  };
+
+  const runForTenant = async (tenantId, day, targetMonth, targetYear) => {
+    const settings = await generateCallback.getSettings?.(tenantId);
+
+    if (!settings) return;
+
+    const generationDay = settings.payrollGenerationDay || 1;
+    if (day !== generationDay) return;
+
+    const result = await generateCallback.runAutoGeneration(targetMonth, targetYear, tenantId);
+    console.log(`Auto payroll generated for ${targetMonth}/${targetYear} (tenant: ${tenantId})`, result);
+  };
+
   const runIfDue = async () => {
     try {
       const { year, month, day } = getISTDateParts();
-      const settings = await generateCallback.getSettings?.();
-
-      if (!settings) return;
-
-      const generationDay = settings.payrollGenerationDay || 1;
-      if (day !== generationDay) return;
 
       const runKey = `${year}-${month}-${day}`;
       if (lastRunKey === runKey) return;
@@ -546,8 +558,12 @@ export const startPayrollGenerationJob = (generateCallback) => {
         targetYear -= 1;
       }
 
-      const result = await generateCallback.runAutoGeneration(targetMonth, targetYear);
-      console.log(`Auto payroll generated for ${targetMonth}/${targetYear}`, result);
+      const tenantIds = await getActiveTenantIds();
+      if (tenantIds.length === 0) return;
+
+      for (const tenantId of tenantIds) {
+        await runForTenant(tenantId, day, targetMonth, targetYear);
+      }
     } catch (error) {
       console.error("Auto payroll generation failed", error);
     }

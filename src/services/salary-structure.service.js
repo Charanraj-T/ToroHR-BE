@@ -110,6 +110,14 @@ export const getSalaryStructuresByEmployee = async (employeeId, requestingUser) 
     }
   }
 
+  if (
+    requestingUser.role === "Admin" &&
+    requestingUser.tenantId &&
+    employee.tenantId?.toString() !== requestingUser.tenantId
+  ) {
+    throwError("Employee not found", 404);
+  }
+
   const structures = await salaryStructureRepository.findSalaryStructuresByEmployee(employeeId);
   return normalizeSalaryStructureList(structures);
 };
@@ -123,6 +131,10 @@ export const createSalaryStructure = async (data, requestingUser) => {
     throwError("Employee not found or inactive", 404);
   }
 
+  if (requestingUser.tenantId && employee.tenantId?.toString() !== requestingUser.tenantId) {
+    throwError("Employee not found", 404);
+  }
+
   if (employee.employmentType !== data.employmentType) {
     throwError("Employment type must match employee record", 400);
   }
@@ -132,6 +144,7 @@ export const createSalaryStructure = async (data, requestingUser) => {
   try {
     const structure = await salaryStructureRepository.createSalaryStructure({
       employeeId: data.employeeId,
+      tenantId: requestingUser.tenantId || null,
       employmentType: data.employmentType,
       effectiveMonth: data.effectiveMonth,
       effectiveYear: data.effectiveYear,
@@ -159,6 +172,11 @@ export const updateSalaryStructure = async (id, data, requestingUser) => {
 
   const existing = await salaryStructureRepository.findSalaryStructureById(id);
   if (!existing) {
+    throwError("Salary structure not found", 404);
+  }
+
+  const employee = await salaryStructureRepository.findEmployeeById(existing.employeeId);
+  if (requestingUser.tenantId && employee?.tenantId?.toString() !== requestingUser.tenantId) {
     throwError("Salary structure not found", 404);
   }
 

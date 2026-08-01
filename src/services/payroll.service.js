@@ -105,6 +105,10 @@ const mergeEmployeeVisibility = (baseQuery, filterQuery) => {
 };
 
 const ensurePayrollViewAccess = async (requestingUser, payroll) => {
+  if (requestingUser?.tenantId && payroll.tenantId?.toString() !== requestingUser.tenantId) {
+    throwError("Payroll record not found", 404);
+  }
+
   if (requestingUser.role === "Admin") return;
 
   const employeeId = payroll.employeeId?._id?.toString() || payroll.employeeId.toString();
@@ -181,6 +185,7 @@ const buildPayrollRecord = async ({
   const payrollData = {
     payrollNumber,
     employeeId: employee._id,
+    tenantId,
     employeeName: employee.fullName,
     employeeCode: employee.employeeId,
     designation: employee.designation,
@@ -273,7 +278,7 @@ export const generatePayrollForMonth = async (month, year, requestingUser = null
     }
 
     await payrollRepository.upsertPayroll(
-      { employeeId: employee._id, month, year },
+      { employeeId: employee._id, month, year, ...(tenantId ? { tenantId } : {}) },
       {
         $set: {
           ...payrollData,
@@ -320,6 +325,10 @@ export const regeneratePayroll = async (employeeId, data, requestingUser) => {
     throwError("Employee not found or inactive", 404);
   }
 
+  if (requestingUser.tenantId && employee.tenantId?.toString() !== requestingUser.tenantId) {
+    throwError("Employee not found", 404);
+  }
+
   const existing = await payrollRepository.findPayrollByEmployeeMonth(
     employeeId,
     data.month,
@@ -360,7 +369,7 @@ export const regeneratePayroll = async (employeeId, data, requestingUser) => {
   }
 
   const payroll = await payrollRepository.upsertPayroll(
-    { employeeId, month: data.month, year: data.year },
+    { employeeId, month: data.month, year: data.year, ...(tenantId ? { tenantId } : {}) },
     {
       $set: {
         ...payrollData,
@@ -388,6 +397,10 @@ export const processPayroll = async (payrollId, requestingUser) => {
     throwError("Payroll record not found", 404);
   }
 
+  if (requestingUser.tenantId && payroll.tenantId?.toString() !== requestingUser.tenantId) {
+    throwError("Payroll record not found", 404);
+  }
+
   const transition = validatePayrollTransition(payroll.status, "Processed");
   if (!transition.valid) {
     throwError(transition.message, 400);
@@ -411,6 +424,10 @@ export const markPayrollPaid = async (payrollId, requestingUser) => {
 
   const payroll = await payrollRepository.findPayrollById(payrollId);
   if (!payroll) {
+    throwError("Payroll record not found", 404);
+  }
+
+  if (requestingUser.tenantId && payroll.tenantId?.toString() !== requestingUser.tenantId) {
     throwError("Payroll record not found", 404);
   }
 
@@ -503,6 +520,6 @@ export const getPayrollPdf = async (payrollId, requestingUser) => {
   };
 };
 
-export const runAutoPayrollGeneration = async (month, year) => {
-  return generatePayrollForMonth(month, year, null);
+export const runAutoPayrollGeneration = async (month, year, tenantId = null) => {
+  return generatePayrollForMonth(month, year, tenantId ? { tenantId, role: "Admin" } : null);
 };

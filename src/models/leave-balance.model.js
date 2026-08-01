@@ -7,6 +7,11 @@ const leaveBalanceSchema = new mongoose.Schema(
       ref: "Employee",
       required: [true, "Employee ID is required"]
     },
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      index: true
+    },
     year: {
       type: Number,
       required: [true, "Leave balance year is required"]

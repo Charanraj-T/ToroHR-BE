@@ -7,6 +7,11 @@ const leaveSchema = new mongoose.Schema(
       ref: "Employee",
       required: [true, "Employee ID is required"]
     },
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      index: true
+    },
     leaveType: {
       type: String,
       enum: ["CL", "SL", "PL", "LOP"],

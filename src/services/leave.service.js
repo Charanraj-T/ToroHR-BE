@@ -83,8 +83,18 @@ const canAccessEmployee = (requestingUser, employee) => {
 const ensureLeaveAccess = (requestingUser, leave) => {
   const employee = leave.employeeId;
 
+  if (requestingUser?.tenantId && leave.tenantId?.toString() !== requestingUser.tenantId) {
+    throwError("Leave request not found", 404);
+  }
+
   if (!canAccessEmployee(requestingUser, employee)) {
     throwError("You do not have permission to access this leave request", 403);
+  }
+};
+
+const ensureSameTenant = (requestingUser, leave) => {
+  if (requestingUser?.tenantId && leave?.tenantId?.toString() !== requestingUser.tenantId) {
+    throwError("Leave request not found", 404);
   }
 };
 
@@ -276,6 +286,7 @@ export const applyLeave = async (leaveData, requestingUser) => {
       createdLeave = await leaveRepository.createLeave(
         {
           employeeId: requestingUser.employeeId,
+          tenantId: requestingUser.tenantId || null,
           leaveType: leaveData.leaveType,
           fromDate: from,
           toDate: to,
@@ -347,6 +358,8 @@ export const approveLeave = async (leaveId, requestingUser) => {
         throwError("Leave request not found", 404);
       }
 
+      ensureSameTenant(requestingUser, leave);
+
       ensureApprovalAccess(requestingUser, leave.employeeId);
 
       if (leave.status === "Approved") {
@@ -375,7 +388,8 @@ export const approveLeave = async (leaveId, requestingUser) => {
         year,
         leave.leaveType,
         leave.leaveDays,
-        session
+        session,
+        leave.tenantId
       );
 
       if (!updatedBalance) {
@@ -406,6 +420,7 @@ export const approveLeave = async (leaveId, requestingUser) => {
         employeeId: leave.employeeId._id,
         dates,
         dayType: leave.dayType,
+        tenantId: leave.tenantId,
         markedBy: requestingUser.employeeId || null,
         markingMethod: requestingUser.role === "Admin" ? "Admin Override" : "Manager Override",
         session
@@ -444,6 +459,8 @@ export const rejectLeave = async (leaveId, rejectData, requestingUser) => {
       if (!leave) {
         throwError("Leave request not found", 404);
       }
+
+      ensureSameTenant(requestingUser, leave);
 
       ensureApprovalAccess(requestingUser, leave.employeeId);
 
@@ -489,6 +506,8 @@ export const cancelLeave = async (leaveId, cancelData, requestingUser) => {
         throwError("Leave request not found", 404);
       }
 
+      ensureSameTenant(requestingUser, leave);
+
       ensureCancellationAccess(requestingUser, leave.employeeId);
 
       if (leave.status === "Cancelled") {
@@ -505,7 +524,8 @@ export const cancelLeave = async (leaveId, cancelData, requestingUser) => {
           leave.employeeId._id,
           year,
           getBalanceUpdateForReversal(leave.leaveType, leave.leaveDays),
-          session
+          session,
+          leave.tenantId
         );
 
         const holidaysInRange = await findHolidaysInDateRange(leave.fromDate, leave.toDate, requestingUser.tenantId);
@@ -573,6 +593,8 @@ export const updateLeave = async (leaveId, leaveData, requestingUser) => {
       if (!existing) {
         throwError("Leave request not found", 404);
       }
+
+      ensureSameTenant(requestingUser, existing);
 
       if (existing.status !== "Pending") {
         throwError("Only pending leave requests can be edited", 400);

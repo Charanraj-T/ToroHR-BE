@@ -7,6 +7,11 @@ const attendanceSchema = new mongoose.Schema(
       ref: "Employee",
       required: [true, "Employee ID is required"]
     },
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      index: true
+    },
     date: {
       type: Date,
       required: [true, "Attendance date is required"]

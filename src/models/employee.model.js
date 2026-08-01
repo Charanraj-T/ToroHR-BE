@@ -35,6 +35,11 @@ const employeeSchema = new mongoose.Schema(
       required: true,
       unique: true
     },
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      index: true
+    },
     fullName: {
       type: String,
       required: [true, "Full name is required"],

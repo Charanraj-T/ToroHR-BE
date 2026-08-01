@@ -88,7 +88,8 @@ export const markAttendanceManually = async (req, res, next) => {
       checkOutTime,
       req.user.employeeId,
       req.user.role === "Admin" ? "Admin Override" : "Manager Override",
-      punches
+      punches,
+      req.user.tenantId
     );
 
     res.status(201).json({
@@ -183,7 +184,7 @@ export const getAttendanceById = async (req, res, next) => {
       return next(error);
     }
 
-    const attendance = await attendanceService.getAttendanceById(id);
+    const attendance = await attendanceService.getAttendanceById(id, req.user);
 
 
     const empId = attendance.employeeId?._id || attendance.employeeId;
@@ -224,6 +225,10 @@ export const getAttendanceById = async (req, res, next) => {
 export const getSummary = async (req, res, next) => {
   try {
     const filters = {};
+
+    if (req.user.role === "Admin") {
+      filters.tenantId = req.user.tenantId;
+    }
 
     if (req.user.role === "Manager") {
       filters.managerId = req.user.employeeId;
@@ -310,7 +315,7 @@ export const deleteAttendance = async (req, res, next) => {
       return next(error);
     }
 
-    const result = await attendanceService.deleteAttendanceRecord(id);
+    const result = await attendanceService.deleteAttendanceRecord(id, req.user);
 
     res.status(200).json(result);
   } catch (error) {

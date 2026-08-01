@@ -5,7 +5,7 @@ import { getStartOfDay, getEndOfDay, getStartOfDayIST, getEndOfDayIST } from "..
 const attendancePopulateOptions = [
   {
     path: "employeeId",
-    select: "employeeId fullName email department reportingManagerId userId",
+    select: "employeeId fullName email department reportingManagerId userId tenantId",
     populate: {
       path: "userId",
       select: "role isActive"
@@ -206,17 +206,18 @@ export const getAttendanceSummaryForToday = async (filters = {}) => {
   const todayStart = getStartOfDayIST(new Date());
   const todayEnd = getEndOfDayIST(new Date());
 
-  const { department, managerId, employeeId } = filters;
+  const { department, managerId, employeeId, tenantId } = filters;
 
   const pipeline = [];
 
   const match = { date: { $gte: todayStart, $lte: todayEnd } };
   if (employeeId) match.employeeId = new mongoose.Types.ObjectId(employeeId);
 
-  if (department || managerId) {
+  if (department || managerId || tenantId) {
     const empQuery = {};
     if (department) empQuery.department = department;
     if (managerId) empQuery.reportingManagerId = new mongoose.Types.ObjectId(managerId);
+    if (tenantId) empQuery.tenantId = new mongoose.Types.ObjectId(tenantId);
 
     const employees = await mongoose.model("Employee").find(empQuery).select("_id").lean();
     const ids = employees.map(e => e._id);
@@ -304,7 +305,7 @@ export const deleteAttendance = (id) => {
 };
 
 export const getAttendanceSummaryForDateRange = async (startDate, endDate, filters = {}) => {
-  const { employeeId, department, managerId } = filters;
+  const { employeeId, employeeIds, department, managerId } = filters;
 
   const start = getStartOfDay(startDate);
   const end = getEndOfDay(endDate);
@@ -312,7 +313,11 @@ export const getAttendanceSummaryForDateRange = async (startDate, endDate, filte
   const match = {
     date: { $gte: start, $lte: end }
   };
-  if (employeeId) match.employeeId = new mongoose.Types.ObjectId(employeeId);
+  if (employeeIds) {
+    match.employeeId = { $in: employeeIds.map(id => new mongoose.Types.ObjectId(id)) };
+  } else if (employeeId) {
+    match.employeeId = new mongoose.Types.ObjectId(employeeId);
+  }
 
   const pipeline = [
     { $match: match },

@@ -56,6 +56,11 @@ const payrollSchema = new mongoose.Schema(
       ref: "Employee",
       required: true
     },
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      index: true
+    },
     employeeName: {
       type: String,
       required: true,

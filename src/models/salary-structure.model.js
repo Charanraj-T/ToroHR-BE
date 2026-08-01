@@ -7,6 +7,11 @@ const salaryStructureSchema = new mongoose.Schema(
       ref: "Employee",
       required: [true, "Employee ID is required"]
     },
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Tenant",
+      index: true
+    },
     employmentType: {
       type: String,
       enum: ["Full-time", "Contract"],

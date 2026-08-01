@@ -1,5 +1,6 @@
 import Employee from "../models/employee.model.js";
 import LeaveBalance from "../models/leave-balance.model.js";
+import Tenant from "../models/tenant.model.js";
 import { getStartOfDay, getEndOfDay, parseDateOnly, isWeekend, getYear } from "./date.util.js";
 
 export { getStartOfDay, getEndOfDay, parseDateOnly, isWeekend, getYear };
@@ -68,8 +69,9 @@ export const getWorkingDatesBetween = (fromDate, toDate, excludeDates = [], week
 
 export const getLeaveYear = getYear;
 
-const buildDefaultLeaveBalance = (employeeId, year, lastResetAt = null) => ({
+const buildDefaultLeaveBalance = (employeeId, year, tenantId = null, lastResetAt = null) => ({
   employeeId,
+  tenantId,
   year,
   ...DEFAULT_LEAVE_BALANCE,
   lastResetAt
@@ -83,16 +85,21 @@ export const getBalanceUpdateForReversal = (leaveType, leaveDays) => {
   return { $inc: { [leaveType]: leaveDays } };
 };
 
-const resetYearlyLeaveBalances = async (year = new Date().getUTCFullYear()) => {
-  const employees = await Employee.find({ status: "Active" }).select("_id").lean();
+export const resetYearlyLeaveBalances = async (year = new Date().getUTCFullYear(), tenantId = null) => {
+  const employeeFilter = { status: "Active" };
+  if (tenantId) employeeFilter.tenantId = tenantId;
+
+  const employees = await Employee.find(employeeFilter).select("_id").lean();
   const resetAt = new Date();
 
   const operations = employees.map((employee) => {
-    const allFields = buildDefaultLeaveBalance(employee._id, year, resetAt);
+    const allFields = buildDefaultLeaveBalance(employee._id, year, tenantId, resetAt);
     const { LOP, ...resetData } = allFields;
+    const filter = { employeeId: employee._id, year };
+    if (tenantId) filter.tenantId = tenantId;
     return {
     updateOne: {
-      filter: { employeeId: employee._id, year },
+      filter,
       update: { $set: resetData },
       upsert: true
     }
@@ -116,13 +123,19 @@ const shouldRunLeaveResetToday = (now) => now.getUTCMonth() === 0 && now.getUTCD
 
 let _resetInterval = null;
 
-const getLatestResetYear = async () => {
+export const getLatestResetYear = async (tenantId = null) => {
   try {
-    const latest = await LeaveBalance.findOne().sort({ year: -1 }).select("year").lean();
+    const filter = tenantId ? { tenantId } : {};
+    const latest = await LeaveBalance.findOne(filter).sort({ year: -1 }).select("year").lean();
     return latest?.year || null;
   } catch {
     return null;
   }
+};
+
+const getActiveTenantIds = async () => {
+  const tenants = await Tenant.find({ status: "Active" }).select("_id").lean();
+  return tenants.map((tenant) => tenant._id);
 };
 
 export const startLeaveBalanceResetJob = () => {
@@ -141,18 +154,26 @@ export const startLeaveBalanceResetJob = () => {
     }
 
     lastRunYear = currentYear;
-    const result = await resetYearlyLeaveBalances(lastRunYear);
-    console.log(`Leave balances reset for ${lastRunYear}`, result);
+    const tenantIds = await getActiveTenantIds();
+
+    for (const tenantId of tenantIds) {
+      const result = await resetYearlyLeaveBalances(lastRunYear, tenantId);
+      console.log(`Leave balances reset for ${lastRunYear} (tenant: ${tenantId})`, result);
+    }
   };
 
   const catchUpMissedReset = async () => {
     const currentYear = new Date().getUTCFullYear();
-    const latestYear = await getLatestResetYear();
+    const tenantIds = await getActiveTenantIds();
 
-    if (latestYear !== null && latestYear < currentYear) {
-      console.log(`Missed leave balance reset detected. Latest: ${latestYear}, Current: ${currentYear}. Running catch-up reset.`);
-      const result = await resetYearlyLeaveBalances(currentYear);
-      console.log(`Catch-up leave balances reset for ${currentYear}`, result);
+    for (const tenantId of tenantIds) {
+      const latestYear = await getLatestResetYear(tenantId);
+
+      if (latestYear !== null && latestYear < currentYear) {
+        console.log(`Missed leave balance reset detected (tenant: ${tenantId}). Latest: ${latestYear}, Current: ${currentYear}. Running catch-up reset.`);
+        const result = await resetYearlyLeaveBalances(currentYear, tenantId);
+        console.log(`Catch-up leave balances reset for ${currentYear} (tenant: ${tenantId})`, result);
+      }
     }
   };
 
