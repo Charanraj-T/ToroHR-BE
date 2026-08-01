@@ -8,11 +8,28 @@ import { getTenantEmployeeIds } from "../utils/tenant.util.js";
 import { getStartOfDay, getEndOfDay, getStartOfDayIST, getEndOfDayIST, isWeekend } from "../utils/date.util.js";
 import { buildWeekendDays } from "../utils/weekend.util.js";
 import {
-  calculateHoursWorked,
   isFutureDate,
   checkIfLate,
+  findOpenPunch,
+  sumPunchHours,
+  normalizePunches,
 } from "../utils/attendance.util.js";
 import { normalizeAttendance, normalizeAttendanceList } from "../dtos/attendance.dto.js";
+
+const populateAndNormalize = async (attendanceId) => {
+  const populated = await Attendance.findById(attendanceId).populate([
+    {
+      path: "employeeId",
+      select: "employeeId fullName email department"
+    },
+    {
+      path: "markedBy",
+      select: "employeeId fullName"
+    }
+  ]);
+
+  return normalizeAttendance(populated);
+};
 
 export const checkIn = async (employeeId) => {
   const session = await mongoose.startSession();
@@ -78,8 +95,8 @@ export const checkIn = async (employeeId) => {
       { session }
     );
 
-    if (existingAttendance && existingAttendance.checkInTime) {
-      const error = new Error("Already checked in today");
+    if (existingAttendance && findOpenPunch(existingAttendance.punches)) {
+      const error = new Error("You already have an active check-in. Please check out first");
       error.statusCode = 400;
       throw error;
     }
@@ -87,23 +104,32 @@ export const checkIn = async (employeeId) => {
     let attendance;
 
     if (existingAttendance) {
+      const isFirstSession = !(existingAttendance.punches?.length);
+      const { isLate, minutesLate } = isFirstSession
+        ? checkIfLate([{ checkInTime: now }])
+        : { isLate: existingAttendance.isLateCheckIn, minutesLate: existingAttendance.lateCheckInMinutes };
+
       attendance = await Attendance.findByIdAndUpdate(
         existingAttendance._id,
         {
-          checkInTime: now,
-          markingMethod: "Self"
+          $push: {
+            punches: { checkInTime: now, checkOutTime: null }
+          },
+          status: "Present",
+          markingMethod: "Self",
+          ...(isFirstSession ? { isLateCheckIn: isLate, lateCheckInMinutes: minutesLate } : {})
         },
         { new: true, runValidators: true, session }
       );
     } else {
-      const { isLate, minutesLate } = checkIfLate(now);
+      const { isLate, minutesLate } = checkIfLate([{ checkInTime: now }]);
 
       attendance = await Attendance.create(
         [
           {
             employeeId,
             date: today,
-            checkInTime: now,
+            punches: [{ checkInTime: now, checkOutTime: null }],
             markingMethod: "Self",
             isLateCheckIn: isLate,
             lateCheckInMinutes: minutesLate,
@@ -118,14 +144,7 @@ export const checkIn = async (employeeId) => {
 
     await session.commitTransaction();
 
-    const populatedAttendance = await Attendance.findById(attendance._id).populate([
-      {
-        path: "employeeId",
-        select: "employeeId fullName email department"
-      }
-    ]);
-
-    return normalizeAttendance(populatedAttendance);
+    return populateAndNormalize(attendance._id);
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -159,45 +178,45 @@ export const checkOut = async (employeeId) => {
       throw error;
     }
 
-    if (attendance.checkOutTime) {
-      const error = new Error("Already checked out today");
+    const openPunch = findOpenPunch(attendance.punches);
+
+    if (!openPunch) {
+      const error = new Error("No active check-in found. Please check-in first");
       error.statusCode = 400;
       throw error;
     }
 
-    if (!attendance.checkInTime) {
-      const error = new Error("Cannot check-out before checking in");
-      error.statusCode = 400;
-      throw error;
-    }
-
-    if (now < attendance.checkInTime) {
+    if (now < openPunch.checkInTime) {
       const error = new Error("Check-out time cannot be before check-in time");
       error.statusCode = 400;
       throw error;
     }
 
-    const hoursWorked = calculateHoursWorked(attendance.checkInTime, now);
+    const hoursWorked = sumPunchHours(
+      attendance.punches.map((p) => {
+        const isOpenPunch = p === openPunch;
+        return isOpenPunch
+          ? { checkInTime: p.checkInTime, checkOutTime: now }
+          : { checkInTime: p.checkInTime, checkOutTime: p.checkOutTime };
+      })
+    );
+
+    const openPunchIndex = attendance.punches.findIndex((p) => p === openPunch);
 
     const updatedAttendance = await Attendance.findByIdAndUpdate(
       attendance._id,
       {
-        checkOutTime: now,
-        hoursWorked
+        $set: {
+          [`punches.${openPunchIndex}.checkOutTime`]: now,
+          hoursWorked
+        }
       },
       { new: true, runValidators: true, session }
     );
 
     await session.commitTransaction();
 
-    const populatedAttendance = await Attendance.findById(updatedAttendance._id).populate([
-      {
-        path: "employeeId",
-        select: "employeeId fullName email department"
-      }
-    ]);
-
-    return normalizeAttendance(populatedAttendance);
+    return populateAndNormalize(updatedAttendance._id);
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -213,7 +232,8 @@ export const markAttendanceManual = async (
   checkInTime,
   checkOutTime,
   markedBy,
-  markingMethod
+  markingMethod,
+  punches = null
 ) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -269,37 +289,25 @@ export const markAttendanceManual = async (
       { session }
     );
 
-    let hoursWorked = 0;
-    if (checkInTime && checkOutTime) {
-      const checkInDate = new Date(`${date}T${checkInTime}+05:30`);
-      const checkOutDate = new Date(`${date}T${checkOutTime}+05:30`);
-      
-      if (!isNaN(checkInDate.getTime()) && !isNaN(checkOutDate.getTime())) {
-        hoursWorked = calculateHoursWorked(checkInDate, checkOutDate);
-      }
+    let punchesToStore = null;
+    if (Array.isArray(punches)) {
+      punchesToStore = normalizePunches(punches, date);
+    } else if (checkInTime || checkOutTime) {
+      punchesToStore = normalizePunches([{ checkInTime, checkOutTime }], date);
     }
+
+    const isLeaveLikeStatus = status === "Absent" || status === "Leave" || status === "Half-day";
+    const finalPunches = isLeaveLikeStatus ? [] : (punchesToStore || []);
+    const hoursWorked = isLeaveLikeStatus ? 0 : sumPunchHours(finalPunches);
 
     const updateData = {
       status,
       markedBy,
       markingMethod,
       hoursWorked,
-      weekendDays
+      weekendDays,
+      punches: finalPunches
     };
-
-    if (checkInTime) {
-      const checkInDate = new Date(`${date}T${checkInTime}+05:30`);
-      updateData.checkInTime = checkInDate;
-    } else if (checkInTime === "") {
-      updateData.checkInTime = null;
-    }
-
-    if (checkOutTime) {
-      const checkOutDate = new Date(`${date}T${checkOutTime}+05:30`);
-      updateData.checkOutTime = checkOutDate;
-    } else if (checkOutTime === "") {
-      updateData.checkOutTime = null;
-    }
 
     if (attendance) {
       attendance = await Attendance.findByIdAndUpdate(
@@ -323,18 +331,7 @@ export const markAttendanceManual = async (
 
     await session.commitTransaction();
 
-    const populatedAttendance = await Attendance.findById(attendance._id).populate([
-      {
-        path: "employeeId",
-        select: "employeeId fullName email department"
-      },
-      {
-        path: "markedBy",
-        select: "employeeId fullName"
-      }
-    ]);
-
-    return normalizeAttendance(populatedAttendance);
+    return populateAndNormalize(attendance._id);
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -355,43 +352,34 @@ export const updateAttendanceRecord = async (attendanceId, updateData, requestin
       throw error;
     }
 
+    if (requestingUser.role === "Manager") {
+      const ownerId = attendance.employeeId?.toString();
+      if (ownerId !== requestingUser.employeeId) {
+        const owner = await Employee.findById(ownerId).session(session);
+        if (!owner || !owner.reportingManagerId || owner.reportingManagerId.toString() !== requestingUser.employeeId) {
+          const error = new Error("You can only update attendance for your team members");
+          error.statusCode = 403;
+          throw error;
+        }
+      }
+    }
+
     if (updateData.date && isFutureDate(updateData.date)) {
       const error = new Error("Cannot set attendance for future date");
       error.statusCode = 400;
       throw error;
     }
 
-    const clearCheckIn = updateData.checkInTime === "";
-    const clearCheckOut = updateData.checkOutTime === "";
-
-    if (clearCheckIn) updateData.checkInTime = null;
-    if (clearCheckOut) updateData.checkOutTime = null;
-
-    let hoursWorked = 0;
-    if (!clearCheckIn && !clearCheckOut) {
-      let ci = updateData.checkInTime ?? attendance.checkInTime;
-      let co = updateData.checkOutTime ?? attendance.checkOutTime;
-
-      if (typeof ci === 'string') {
-        ci = new Date(`${attendance.date.toISOString().split('T')[0]}T${ci}+05:30`);
-        updateData.checkInTime = ci;
-      }
-      if (typeof co === 'string') {
-        co = new Date(`${attendance.date.toISOString().split('T')[0]}T${co}+05:30`);
-        updateData.checkOutTime = co;
-      }
-
-      if (ci && co) {
-        if (co < ci) {
-          const error = new Error("Check-out time cannot be before check-in time");
-          error.statusCode = 400;
-          throw error;
-        }
-        hoursWorked = calculateHoursWorked(ci, co);
-      }
+    if (updateData.status && ["Absent", "Leave", "Half-day"].includes(updateData.status)) {
+      updateData.punches = [];
+      updateData.hoursWorked = 0;
+    } else if (Array.isArray(updateData.punches)) {
+      const dateStr = attendance.date.toISOString().split("T")[0];
+      updateData.punches = normalizePunches(updateData.punches, dateStr);
+      updateData.hoursWorked = sumPunchHours(updateData.punches);
+    } else {
+      updateData.hoursWorked = sumPunchHours(attendance.punches || []);
     }
-
-    updateData.hoursWorked = hoursWorked;
 
     if (!updateData.weekendDays) {
       const weekendDays = await buildWeekendDays(requestingUser?.tenantId);
@@ -406,18 +394,7 @@ export const updateAttendanceRecord = async (attendanceId, updateData, requestin
 
     await session.commitTransaction();
 
-    const populatedAttendance = await Attendance.findById(updated._id).populate([
-      {
-        path: "employeeId",
-        select: "employeeId fullName email department"
-      },
-      {
-        path: "markedBy",
-        select: "employeeId fullName"
-      }
-    ]);
-
-    return normalizeAttendance(populatedAttendance);
+    return populateAndNormalize(updated._id);
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -594,16 +571,5 @@ export const deleteAttendanceRecord = async (attendanceId) => {
   return {
     success: true,
     message: "Attendance record deleted successfully"
-  };
-};
-
-export const hasCheckedInToday = async (employeeId) => {
-  const now = new Date();
-  const attendance = await attendanceRepository.findAttendanceByEmployeeAndDate(employeeId, now);
-
-  return {
-    hasCheckedIn: !!attendance?.checkInTime,
-    hasCheckedOut: !!attendance?.checkOutTime,
-    attendance: attendance ? normalizeAttendance(attendance) : null
   };
 };

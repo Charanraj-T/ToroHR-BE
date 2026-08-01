@@ -382,6 +382,23 @@ export const approveLeave = async (leaveId, requestingUser) => {
         throwError(`Insufficient ${leave.leaveType} balance`, 400);
       }
 
+      if (leave.dayType === "Full-day") {
+        const conflict = await leaveRepository.hasAttendanceConflict({
+          employeeId: leave.employeeId._id,
+          fromDate: leave.fromDate,
+          toDate: leave.toDate,
+          dayType: "Full-day",
+          session
+        });
+
+        if (conflict) {
+          throwError(
+            `Cannot approve leave: attendance already marked as "${conflict.status}" on ${conflict.date.toISOString().split('T')[0]}`,
+            400
+          );
+        }
+      }
+
       const holidaysInRange = await findHolidaysInDateRange(leave.fromDate, leave.toDate, requestingUser.tenantId);
       const weekendDaysForApproval = await buildWeekendDays(requestingUser.tenantId);
       const dates = getWorkingDatesBetween(leave.fromDate, leave.toDate, holidaysInRange.map(h => h.date), weekendDaysForApproval);

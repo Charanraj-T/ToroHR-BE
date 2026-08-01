@@ -21,19 +21,6 @@ export const findAttendanceById = (id) => {
   return Attendance.findById(id).populate(attendancePopulateOptions).lean();
 };
 
-export const findAttendanceByEmployeeAndDate = (employeeId, date) => {
-  const startOfDay = getStartOfDayIST(date);
-  const endOfDay = getEndOfDayIST(date);
-
-  return Attendance.findOne({
-    employeeId,
-    date: {
-      $gte: startOfDay,
-      $lte: endOfDay
-    }
-  }).select("checkInTime checkOutTime status hoursWorked").populate(attendancePopulateOptions).lean();
-};
-
 const buildDateFilter = (startDate, endDate) => {
   const dateFilter = {};
   if (startDate) {
@@ -51,8 +38,7 @@ const projectFields = {
     employeeId: 1,
     employee: 1,
     date: 1,
-    checkInTime: 1,
-    checkOutTime: 1,
+    punches: 1,
     hoursWorked: 1,
     status: 1,
     markedBy: 1,

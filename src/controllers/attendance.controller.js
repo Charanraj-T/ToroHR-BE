@@ -62,7 +62,7 @@ export const markAttendanceManually = async (req, res, next) => {
       return next(err);
     }
 
-    const { employeeId, date, status, checkInTime, checkOutTime } = value;
+    const { employeeId, date, status, checkInTime, checkOutTime, punches } = value;
 
     if (req.user.role === "Manager") {
       if (employeeId !== req.user.employeeId) {
@@ -87,7 +87,8 @@ export const markAttendanceManually = async (req, res, next) => {
       checkInTime,
       checkOutTime,
       req.user.employeeId,
-      req.user.role === "Admin" ? "Admin Override" : "Manager Override"
+      req.user.role === "Admin" ? "Admin Override" : "Manager Override",
+      punches
     );
 
     res.status(201).json({
@@ -124,6 +125,23 @@ export const updateAttendance = async (req, res, next) => {
       message: "Attendance updated successfully",
       data: result
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMyAttendance = async (req, res, next) => {
+  try {
+    const { error, value } = getAttendanceFiltersSchema.validate(req.query);
+    if (error) {
+      const err = new Error(error.details[0].message);
+      err.statusCode = 400;
+      return next(err);
+    }
+
+    const result = await attendanceService.getMyAttendance(req.user.employeeId, value);
+
+    res.status(200).json(result);
   } catch (error) {
     next(error);
   }
@@ -203,19 +221,6 @@ export const getAttendanceById = async (req, res, next) => {
   }
 };
 
-export const getMyAttendanceStatus = async (req, res, next) => {
-  try {
-    const result = await attendanceService.hasCheckedInToday(req.user.employeeId);
-
-    res.status(200).json({
-      success: true,
-      data: result
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 export const getSummary = async (req, res, next) => {
   try {
     const filters = {};
@@ -243,7 +248,7 @@ export const exportCsv = async (req, res, next) => {
 
     const { startDate, endDate, employeeId, department, managerId } = value;
 
-    let filters = { department };
+    const filters = { department, tenantId: req.user.tenantId };
 
     if (employeeId) {
       filters.employeeId = employeeId;
@@ -260,10 +265,6 @@ export const exportCsv = async (req, res, next) => {
     if (req.user.role === "Manager") {
       delete filters.employeeId;
       filters.managerId = req.user.employeeId;
-    }
-
-    if (req.user.role === "Admin") {
-      filters.tenantId = req.user.tenantId;
     }
 
     const employees = await attendanceService.getAttendanceForExport(startDate, endDate, filters);

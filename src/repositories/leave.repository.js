@@ -172,7 +172,7 @@ export const findEmployeeIdsBySearch = async (search) => {
 };
 
 export const markAttendanceAsLeave = async ({ employeeId, dates, dayType, markedBy, markingMethod, session }) => {
-  const attendanceStatus = dayType === "Half-day" ? "Half-day" : "Leave";
+  const isHalfDay = dayType === "Half-day";
 
   const operations = dates.map((date) => ({
     updateOne: {
@@ -180,18 +180,31 @@ export const markAttendanceAsLeave = async ({ employeeId, dates, dayType, marked
         employeeId,
         date: getStartOfDayIST(date)
       },
-      update: {
-        $set: {
-          employeeId,
-          date: getStartOfDayIST(date),
-          status: attendanceStatus,
-          checkInTime: null,
-          checkOutTime: null,
-          hoursWorked: 0,
-          markedBy,
-          markingMethod
-        }
-      },
+      update: isHalfDay
+        ? {
+            $set: {
+              employeeId,
+              date: getStartOfDayIST(date),
+              status: "Half-day",
+              markedBy,
+              markingMethod
+            },
+            $setOnInsert: {
+              punches: [],
+              hoursWorked: 0
+            }
+          }
+        : {
+            $set: {
+              employeeId,
+              date: getStartOfDayIST(date),
+              status: "Leave",
+              punches: [],
+              hoursWorked: 0,
+              markedBy,
+              markingMethod
+            }
+          },
       upsert: true
     }
   }));
@@ -217,8 +230,7 @@ export const clearLeaveAttendance = async ({ employeeId, dates, session }) => {
     {
       $set: {
         status: "Absent",
-        checkInTime: null,
-        checkOutTime: null,
+        punches: [],
         hoursWorked: 0,
         markedBy: null
       }

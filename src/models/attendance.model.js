@@ -11,13 +11,20 @@ const attendanceSchema = new mongoose.Schema(
       type: Date,
       required: [true, "Attendance date is required"]
     },
-    checkInTime: {
-      type: Date,
-      default: null
-    },
-    checkOutTime: {
-      type: Date,
-      default: null
+    punches: {
+      type: [
+        {
+          checkInTime: {
+            type: Date,
+            default: null
+          },
+          checkOutTime: {
+            type: Date,
+            default: null
+          }
+        }
+      ],
+      default: []
     },
     hoursWorked: {
       type: Number,

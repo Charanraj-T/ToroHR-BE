@@ -62,6 +62,8 @@ ADMIN_EMAIL=admin@torohr.com
 ADMIN_PASSWORD=change_this_password
 ```
 
+Optional: `ADMIN_ROLE=SuperAdmin` (default) — can be `SuperAdmin`, `Admin`, `Manager`, or `Employee`.
+
 Run:
 
 ```bash

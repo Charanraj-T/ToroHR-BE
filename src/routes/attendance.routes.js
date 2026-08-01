@@ -19,18 +19,11 @@ router.post(
   attendanceController.checkOut,
 );
 
-// Get current attendance status
-router.get(
-  "/me/current",
-  authorizeRoles("Employee", "Manager"),
-  attendanceController.getMyAttendanceStatus,
-);
-
 // Get my attendance history
 router.get(
   "/me",
   authorizeRoles("Employee", "Manager"),
-  attendanceController.getAttendance,
+  attendanceController.getMyAttendance,
 );
 
 router.post(

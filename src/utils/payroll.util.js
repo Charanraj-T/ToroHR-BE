@@ -140,12 +140,31 @@ export const computeAttendanceSnapshot = ({
       workingDays += 1;
       if (attendanceRecord.status === "Present") {
         presentDays += 1;
-      } else if (attendanceRecord.status === "Half-day") {
-        presentDays += 0.5;
-        lopDays += 0.5;
-      } else {
-        lopDays += 1;
+        continue;
       }
+
+      const leaveInfo = isDateInApprovedLeave(date, approvedLeaves);
+
+      if (attendanceRecord.status === "Half-day") {
+        presentDays += 0.5;
+        if (leaveInfo && leaveInfo.fraction === 0.5 && PAID_LEAVE_TYPES.includes(leaveInfo.leaveType)) {
+          leaveDays += 0.5;
+        } else {
+          lopDays += 0.5;
+        }
+        continue;
+      }
+
+      if (attendanceRecord.status === "Leave") {
+        if (leaveInfo && PAID_LEAVE_TYPES.includes(leaveInfo.leaveType)) {
+          leaveDays += leaveInfo.fraction;
+        } else {
+          lopDays += 1;
+        }
+        continue;
+      }
+
+      lopDays += 1;
       continue;
     }
 

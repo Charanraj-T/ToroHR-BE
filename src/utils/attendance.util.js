@@ -16,7 +16,55 @@ export const calculateHoursWorked = (checkInTime, checkOutTime) => {
   return Math.round(diffHours * 100) / 100;
 };
 
-export const checkIfLate = (checkInTime, gracePeriodMinutes = 5) => {
+export const findOpenPunch = (punches = []) => {
+  return punches.find((p) => p && p.checkInTime && !p.checkOutTime) || null;
+};
+
+export const sumPunchHours = (punches = []) => {
+  let total = 0;
+  for (const punch of punches) {
+    total += calculateHoursWorked(punch?.checkInTime, punch?.checkOutTime);
+  }
+  return Math.round(total * 100) / 100;
+};
+
+export const normalizePunches = (punches, dateStr) => {
+  const parseTime = (t) => (t ? new Date(`${dateStr}T${t}+05:30`) : null);
+
+  const normalized = (punches || [])
+    .map((p) => ({
+      checkInTime: parseTime(p.checkInTime),
+      checkOutTime: parseTime(p.checkOutTime)
+    }))
+    .filter((p) => p.checkInTime || p.checkOutTime);
+
+  let openCount = 0;
+  for (const p of normalized) {
+    if (p.checkOutTime && !p.checkInTime) {
+      const error = new Error("Check-in time is required for each session");
+      error.statusCode = 400;
+      throw error;
+    }
+    if (p.checkInTime && p.checkOutTime && p.checkOutTime < p.checkInTime) {
+      const error = new Error("Check-out time cannot be before check-in time");
+      error.statusCode = 400;
+      throw error;
+    }
+    if (p.checkInTime && !p.checkOutTime) openCount++;
+    if (openCount > 1) {
+      const error = new Error("Only one open session is allowed per day");
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  return normalized;
+};
+
+export const checkIfLate = (punches, gracePeriodMinutes = 5) => {
+  const firstPunch = Array.isArray(punches) ? punches[0] : punches;
+  const checkInTime = firstPunch?.checkInTime || firstPunch;
+
   if (!checkInTime) {
     return { isLate: false, minutesLate: 0 };
   }

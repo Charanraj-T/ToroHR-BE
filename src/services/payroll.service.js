@@ -200,8 +200,15 @@ const buildPayrollRecord = async ({
 };
 
 export const generatePayrollForMonth = async (month, year, requestingUser = null) => {
-  const employees = await payrollRepository.findActiveEmployees();
   const tenantId = requestingUser?.tenantId;
+  let employees = await payrollRepository.findActiveEmployees();
+
+  if (tenantId) {
+    const tenantEmployeeIds = await getTenantEmployeeIds(tenantId);
+    const tenantIdSet = new Set(tenantEmployeeIds.map((id) => id.toString()));
+    employees = employees.filter((employee) => tenantIdSet.has(employee._id.toString()));
+  }
+
   const payrollSettings = await (tenantId ? getPayrollSettingsInternal(tenantId) : getPayrollSettingsInternal());
   const companySettings = tenantId
     ? await getCompanySettingsRepo(tenantId) || {}

@@ -12,6 +12,16 @@ export const checkInSchema = Joi.object({});
 
 export const checkOutSchema = Joi.object({});
 
+const timePattern = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+const punchSchema = Joi.object({
+  checkInTime: Joi.string().pattern(timePattern).allow(null, ""),
+  checkOutTime: Joi.string().pattern(timePattern).allow(null, ""),
+  _id: Joi.any().allow(null)
+});
+
+const punchesArraySchema = Joi.array().items(punchSchema);
+
 export const markAttendanceSchema = Joi.object({
   employeeId: Joi.string().hex().length(24).required(),
   date: Joi.string()
@@ -29,6 +39,7 @@ export const markAttendanceSchema = Joi.object({
   status: Joi.string().valid("Present", "Absent", "Leave", "Weekend", "Half-day", "Holiday").required(),
   checkInTime: Joi.string().allow(null, ""),
   checkOutTime: Joi.string().allow(null, ""),
+  punches: punchesArraySchema,
 
   markingMethod: Joi.string()
     .valid("Admin Override", "Manager Override")
@@ -39,7 +50,7 @@ export const updateAttendanceSchema = Joi.object({
   status: Joi.string().valid("Present", "Absent", "Leave", "Weekend", "Half-day", "Holiday"),
   checkInTime: Joi.string().allow(null, ""),
   checkOutTime: Joi.string().allow(null, ""),
-
+  punches: punchesArraySchema,
   hoursWorked: Joi.number().min(0).allow(null)
 }).min(1);
 
@@ -63,16 +74,25 @@ export const exportAttendanceSchema = Joi.object({
   status: Joi.string().valid("Present", "Absent", "Leave", "Weekend", "Half-day", "Holiday")
 });
 
-// Normalize attendance response
 export const normalizeAttendance = (attendance) => {
   if (!attendance) return null;
+
+  const punches = (attendance.punches || []).map((p) => ({
+    _id: p._id || null,
+    checkInTime: p.checkInTime || null,
+    checkOutTime: p.checkOutTime || null
+  }));
+
+  const firstPunch = punches[0] || null;
+  const lastPunch = punches[punches.length - 1] || null;
 
   return {
     id: attendance._id,
     employeeId: attendance.employee || attendance.employeeId,
     date: attendance.date,
-    checkInTime: attendance.checkInTime,
-    checkOutTime: attendance.checkOutTime,
+    checkInTime: firstPunch?.checkInTime || null,
+    checkOutTime: lastPunch?.checkOutTime || null,
+    punches,
     hoursWorked: attendance.hoursWorked,
     status: attendance.status,
     markedBy: attendance.markedBy,
