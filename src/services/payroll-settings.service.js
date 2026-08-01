@@ -1,11 +1,6 @@
 import { normalizePayrollSettings } from "../dtos/payroll.dto.js";
 import * as payrollSettingsRepository from "../repositories/payroll-settings.repository.js";
-
-const throwError = (message, statusCode) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  throw error;
-};
+import { throwError } from "../utils/http.util.js";
 
 export const getPayrollSettings = async (requestingUser) => {
   if (requestingUser.role !== "Admin") {

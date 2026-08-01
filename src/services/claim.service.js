@@ -3,6 +3,7 @@ import { normalizeClaim, normalizeClaimList, normalizeClaimSummary } from "../dt
 import * as claimRepository from "../repositories/claim.repository.js";
 import { getTenantEmployeeIds } from "../utils/tenant.util.js";
 import { getEndOfDay, parseDateOnly } from "../utils/date.util.js";
+import { escapeRegex, parsePageLimit, throwError, validateObjectId } from "../utils/http.util.js";
 import {
   CANCELLABLE_STATUSES,
   normalizeAttachments,
@@ -10,25 +11,6 @@ import {
   validateClaimAccess,
   validateTransition
 } from "../utils/claim.util.js";
-
-const throwError = (message, statusCode) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  throw error;
-};
-
-const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const validateObjectId = (id, label = "ID") => {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throwError(`${label} is invalid`, 400);
-  }
-};
-
-const parsePageLimit = (queryParams) => ({
-  page: Math.max(parseInt(queryParams.page, 10) || 1, 1),
-  limit: Math.min(Math.max(parseInt(queryParams.limit, 10) || 20, 1), 100)
-});
 
 const ensureEmployeeExists = async (employeeId, session = null) => {
   validateObjectId(employeeId, "Employee ID");

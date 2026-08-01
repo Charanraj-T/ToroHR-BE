@@ -5,6 +5,7 @@ import { validateCreateEmployeeDto, validateUpdateEmployeeDto } from "../dtos/em
 import * as employeeRepository from "../repositories/employee.repository.js";
 import { getTenantUserIds } from "../utils/tenant.util.js";
 import { processFileBuffer } from "../utils/file.util.js";
+import { escapeRegex, throwError, validateObjectId } from "../utils/http.util.js";
 
 const normalizeModifiedBy = (modifiedBy) => {
   if (!modifiedBy) return null;
@@ -71,18 +72,6 @@ const normalizeEmployee = (employee, { includeSensitive = true, includeDocuments
   }
 
   return data;
-};
-
-const throwError = (message, statusCode) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  throw error;
-};
-
-const validateObjectId = (id, label = "ID") => {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throwError(`${label} is invalid`, 400);
-  }
 };
 
 const ensureSameTenant = (employee, requestingUser) => {
@@ -439,7 +428,7 @@ export const getManagersPayrollAccess = async (queryParams, tenantId = null) => 
   }
 
   if (queryParams.search?.trim()) {
-    const search = queryParams.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const search = escapeRegex(queryParams.search.trim());
     matchStage.$or = [
       { employeeId: { $regex: search, $options: "i" } },
       { fullName: { $regex: search, $options: "i" } }

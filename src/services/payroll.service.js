@@ -10,6 +10,7 @@ import * as salaryStructureRepository from "../repositories/salary-structure.rep
 import { getCompanySettings as getCompanySettingsRepo } from "../repositories/settings.repository.js";
 import { findHolidaysInDateRange } from "../repositories/holiday.repository.js";
 import { buildWeekendDaysFromSettings } from "../utils/weekend.util.js";
+import { escapeRegex, parsePageLimit, throwError, validateObjectId } from "../utils/http.util.js";
 import { getPayrollSettingsInternal } from "./payroll-settings.service.js";
 import {
   buildCompanyAddress,
@@ -24,25 +25,6 @@ import {
   resolveSalaryStructure,
   validatePayrollTransition
 } from "../utils/payroll.util.js";
-
-const throwError = (message, statusCode) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  throw error;
-};
-
-const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const validateObjectId = (id, label = "ID") => {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throwError(`${label} is invalid`, 400);
-  }
-};
-
-const parsePageLimit = (queryParams) => ({
-  page: Math.max(parseInt(queryParams.page, 10) || 1, 1),
-  limit: Math.min(Math.max(parseInt(queryParams.limit, 10) || 20, 1), 100)
-});
 
 const buildVisibilityQuery = async (requestingUser) => {
   if (requestingUser.role === "Admin") {
@@ -175,7 +157,7 @@ const buildPayrollRecord = async ({
     salarySnapshot = calculateFullTimePay(
       salaryStructure,
       attendanceSnapshot,
-      payrollSettings.defaultPF
+      payrollSettings?.defaultPF
     );
   }
 

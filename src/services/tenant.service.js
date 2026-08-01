@@ -1,22 +1,10 @@
-import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 import User from "../models/user.model.js";
 import * as tenantRepository from "../repositories/tenant.repository.js";
 import * as settingsRepository from "../repositories/settings.repository.js";
 import * as payrollSettingsRepository from "../repositories/payroll-settings.repository.js";
 import { normalizeTenant } from "../dtos/tenant.dto.js";
-
-const throwError = (message, statusCode) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  throw error;
-};
-
-const validateObjectId = (id, label = "ID") => {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throwError(`${label} is invalid`, 400);
-  }
-};
+import { throwError, validateObjectId } from "../utils/http.util.js";
 
 export const createTenant = async (data) => {
   const tenant = await tenantRepository.createTenant({

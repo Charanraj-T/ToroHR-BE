@@ -1,11 +1,6 @@
 import * as settingsRepository from "../repositories/settings.repository.js";
 import { normalizeCompanySettings } from "../dtos/company-settings.dto.js";
-
-const throwError = (message, statusCode) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  throw error;
-};
+import { throwError } from "../utils/http.util.js";
 
 export const getCompanySettings = async (requestingUser) => {
   if (requestingUser.role === "Employee") {

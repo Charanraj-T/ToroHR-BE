@@ -1,22 +1,10 @@
-import mongoose from "mongoose";
 import * as holidayRepository from "../repositories/holiday.repository.js";
 import {
   getHolidaysForYear,
   getUpcomingHolidays,
 } from "../utils/recurring-holiday.util.js";
 import { parseDateOnly, getYear } from "../utils/date.util.js";
-
-const throwError = (message, statusCode) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  throw error;
-};
-
-const validateObjectId = (id, label = "ID") => {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throwError(`${label} is invalid`, 400);
-  }
-};
+import { throwError, validateObjectId } from "../utils/http.util.js";
 
 /**
  * Create a new holiday

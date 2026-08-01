@@ -4,6 +4,7 @@ import * as leaveRepository from "../repositories/leave.repository.js";
 import { getTenantEmployeeIds } from "../utils/tenant.util.js";
 import { findHolidaysInDateRange } from "../repositories/holiday.repository.js";
 import { buildWeekendDays } from "../utils/weekend.util.js";
+import { escapeRegex, parsePageLimit, throwError, validateObjectId } from "../utils/http.util.js";
 import {
   calculateLeaveDays,
   getBalanceUpdateForReversal,
@@ -12,25 +13,6 @@ import {
   getWorkingDatesBetween,
   parseDateOnly
 } from "../utils/leave.util.js";
-
-const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const throwError = (message, statusCode) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  throw error;
-};
-
-const validateObjectId = (id, label = "ID") => {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throwError(`${label} is invalid`, 400);
-  }
-};
-
-const parsePageLimit = (queryParams) => ({
-  page: Math.max(parseInt(queryParams.page, 10) || 1, 1),
-  limit: Math.min(Math.max(parseInt(queryParams.limit, 10) || 20, 1), 100)
-});
 
 const validateDateRange = (fromDate, toDate, dayType = "Full-day", weekendDays = [0, 6]) => {
   const from = parseDateOnly(fromDate);

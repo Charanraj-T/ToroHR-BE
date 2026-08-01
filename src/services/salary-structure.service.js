@@ -1,28 +1,11 @@
-import mongoose from "mongoose";
 import {
   normalizeSalaryStructure,
   normalizeSalaryStructureList
 } from "../dtos/salary-structure.dto.js";
 import * as salaryStructureRepository from "../repositories/salary-structure.repository.js";
+import { parsePageLimit, throwError, validateObjectId } from "../utils/http.util.js";
 import Employee from "../models/employee.model.js";
 import User from "../models/user.model.js";
-
-const throwError = (message, statusCode) => {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  throw error;
-};
-
-const validateObjectId = (id, label = "ID") => {
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    throwError(`${label} is invalid`, 400);
-  }
-};
-
-const parsePageLimit = (queryParams) => ({
-  page: Math.max(parseInt(queryParams.page, 10) || 1, 1),
-  limit: Math.min(Math.max(parseInt(queryParams.limit, 10) || 20, 1), 100)
-});
 
 const ensureSalaryViewAccess = (requestingUser) => {
   if (requestingUser.role === "Employee") {
